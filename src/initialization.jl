@@ -1,4 +1,4 @@
-function initialize_simulation!(x, y, z, npart, rc, halfdist)
+function initialize_cubic!(x, y, z, npart, rc, halfdist)
     dist = halfdist * 2.0
 
     # Define the first positions
@@ -26,6 +26,12 @@ function initialize_simulation!(x, y, z, npart, rc, halfdist)
     end
 
     return nothing
+end
+
+function initialize_random(unitcell, npart, rng; tol=1.0)
+    coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{3,Float64}, npart)
+
+    return coordinates
 end
 
 function init_system(boxl, cutoff, inter_distance; n_particles=10^3)
