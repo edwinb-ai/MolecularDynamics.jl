@@ -104,7 +104,7 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
             velocities[i] = @. v + (f * dt / 2.0)
         end
 
-        # Apply the thermostat only during equilibration
+        # Always apply the thermostat and compute the kinetic energy
         bussi!(velocities, params.ktemp, nf, dt, τ, rng)
         kinetic_energy = 0.0
         for i in eachindex(velocities)
@@ -112,13 +112,13 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
         end
         kinetic_energy /= 2.0
 
-        # Accumulate the values of the virial
+        # Accumulate the values of the virial for computing the pressure
         if mod(step, 100) == 0 && step > eq_steps
             virial += system.energy_and_forces.virial
             nprom += 1
         end
 
-        # Every few steps we show the energy and save to disk
+        # Every few steps we save thermodynamic quantities to disk
         if mod(step, 100) == 0 && step > eq_steps
             ener_part = system.energy_and_forces.energy
             ener_part /= params.n_particles
