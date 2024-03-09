@@ -54,7 +54,7 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
     nprom = 0
     kinetic_energy = 0.0
 
-    # Initialize the system
+    # Initialize the system in a random configuration
     system = init_system(
         boxl,
         cutoff,
@@ -105,10 +105,7 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
         end
 
         # Apply the thermostat only during equilibration
-        # ! FIXME: This is very rudimentary for now
-        if step <= eq_steps
-            bussi!(velocities, params.ktemp, nf, dt, τ, rng)
-        end
+        bussi!(velocities, params.ktemp, nf, dt, τ, rng)
         kinetic_energy = 0.0
         for i in eachindex(velocities)
             kinetic_energy += sum(abs2, velocities[i])
@@ -155,16 +152,16 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
 end
 
 function main()
-    # densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
-    densities = [0.9]
+    densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
+    # densities = [0.9]
 
-    # ThreadPools.@qthreads for d in densities
-    for d in densities
-        params = Parameters(d, 0.85, 22^3)
+    ThreadPools.@qthreads for d in densities
+        # for d in densities
+        params = Parameters(d, 0.85, 8^3)
         # Create a new directory with these parameters
         pathname = joinpath(@__DIR__, "bussi-cells_density=$(@sprintf("%.4g", d))")
         mkpath(pathname)
-        simulation(params, pathname; eq_steps=10_000, prod_steps=10_000)
+        simulation(params, pathname; eq_steps=100_000, prod_steps=1_000_000)
     end
 
     return nothing
