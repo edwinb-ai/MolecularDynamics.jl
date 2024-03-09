@@ -8,6 +8,7 @@ using ThreadPools
 using Distributions: Gamma
 using CellListMap.PeriodicSystems
 import CellListMap.PeriodicSystems: copy_output, reset_output!, reducer
+using Packmol: pack_monoatomic!
 
 include("initialization.jl")
 include("potentials.jl")
@@ -54,7 +55,15 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
     kinetic_energy = 0.0
 
     # Initialize the system
-    system = init_system(boxl, cutoff, inter_distance; n_particles=params.n_particles)
+    system = init_system(
+        boxl,
+        cutoff,
+        inter_distance,
+        rng,
+        pathname;
+        random=true,
+        n_particles=params.n_particles,
+    )
     # Initialize the velocities of the system by having the correct temperature
     velocities = initialize_velocities(
         system.positions, params.ktemp, nf, rng, params.n_particles
@@ -130,7 +139,10 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
             println(trajectory_file, params.n_particles)
             println(trajectory_file, "Frame $step")
             for i in eachindex(system.positions)
-                writedlm(trajectory_file, [1 i system.positions[i]...], " ")
+                particle = system.positions[i]
+                Printf.@printf(
+                    io, "%d %d %lf %lf %lf\n", 1, i, particle[1], particle[2], particle[3]
+                )
             end
         end
     end
@@ -148,11 +160,11 @@ function main()
 
     # ThreadPools.@qthreads for d in densities
     for d in densities
-        params = Parameters(d, 0.85, 8^3)
+        params = Parameters(d, 0.85, 22^3)
         # Create a new directory with these parameters
         pathname = joinpath(@__DIR__, "bussi-cells_density=$(@sprintf("%.4g", d))")
         mkpath(pathname)
-        simulation(params, pathname; eq_steps=100_000, prod_steps=1_000_000)
+        simulation(params, pathname; eq_steps=10_000, prod_steps=10_000)
     end
 
     return nothing
