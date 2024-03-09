@@ -49,3 +49,31 @@ function init_system(boxl, cutoff, inter_distance; n_particles=10^3)
 
     return system
 end
+
+function initialize_velocities(positions, ktemp, nf, rng, n_particles)
+    # Initilize the random numbers of the velocities
+    velocities = [StaticArrays.@SVector zeros(3) for _ in 1:length(positions)]
+    sum_v = StaticArrays.@MVector zeros(3)
+    sum_v2 = 0.0
+
+    for i in eachindex(velocities)
+        velocities[i] = randn(rng, size(velocities[i]))
+        # Collect the center of mass, momentum = 1
+        sum_v .+= velocities[i]
+    end
+
+    sum_v ./= n_particles
+
+    for i in eachindex(velocities)
+        # Remove the center of mass momentum
+        velocities[i] = velocities[i] .- sum_v
+        sum_v2 += sum(abs2, velocities[i])
+    end
+
+    fs = sqrt(ktemp / (sum_v2 / nf))
+    for i in eachindex(velocities)
+        velocities[i] = velocities[i] .* fs
+    end
+
+    return velocities
+end

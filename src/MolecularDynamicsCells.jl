@@ -11,56 +11,13 @@ import CellListMap.PeriodicSystems: copy_output, reset_output!, reducer
 
 include("initialization.jl")
 include("potentials.jl")
+include("thermostat.jl")
+include("pairwise.jl")
 
 struct Parameters
     ρ::Float64
     ktemp::Float64
     n_particles::Int
-end
-
-mutable struct EnergyAndForces
-    energy::Float64
-    virial::Float64
-    forces::Vector{StaticArrays.SVector{3,Float64}}
-end
-
-"Custom copy, reset and reducer functions"
-function copy_output(x::EnergyAndForces)
-    return EnergyAndForces(copy(x.energy), copy(x.virial), copy(x.forces))
-end
-
-function reset_output!(output::EnergyAndForces)
-    output.energy = 0.0
-    output.virial = 0.0
-
-    for i in eachindex(output.forces)
-        output.forces[i] = StaticArrays.SVector(0.0, 0.0, 0.0)
-    end
-
-    return output
-end
-
-function reducer(x::EnergyAndForces, y::EnergyAndForces)
-    e_tot = x.energy + y.energy
-    vir_tot = x.virial + y.virial
-    x.forces .+= y.forces
-
-    return EnergyAndForces(e_tot, vir_tot, x.forces)
-end
-
-"Function that updates energy and forces for each pair"
-function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
-    d = sqrt(d2)
-    r = x - y
-    (uij, fij) = lj(d)
-    sumies = @. fij * r / d
-    output.virial += dot(sumies, r)
-    # output.virial += virial / 2.0
-    output.energy += uij
-    output.forces[i] = @. output.forces[i] + sumies
-    output.forces[j] = @. output.forces[j] - sumies
-
-    return output
 end
 
 function integrate_half(positions, velocities, forces, dt, boxl; pbc=true)
@@ -75,96 +32,6 @@ function integrate_half(positions, velocities, forces, dt, boxl; pbc=true)
     return new_positions, new_velocities
 end
 
-function andersen!(velocities, ktemp, const_val, rng)
-    sigma = sqrt(ktemp)
-
-    for i in eachindex(velocities)
-        if rand(rng) < const_val
-            noise = StaticArrays.@SVector randn(rng, 3)
-            velocities[i] = noise .* sigma
-        end
-    end
-
-    return nothing
-end
-
-function sum_noises(nf, rng)
-    result = 0.0
-
-    if nf == 0.0
-        result = 0.0
-    elseif nf == 1.0
-        result = randn(rng)^2
-    elseif mod(nf, 2) == 0
-        gamma_dist = Gamma(nf ÷ 2)
-        result = 2.0 * rand(rng, gamma_dist)
-    else
-        gamma_dist = Gamma((nf - 1) ÷ 2)
-        result = 2.0 * rand(rng, gamma_dist)
-        result += randn(rng)^2
-    end
-
-    return result
-end
-
-function bussi!(velocities, ktemp, nf, dt, τ, rng)
-    dt_ratio = dt / τ
-
-    # Compute kinetic energy
-    kinetic_energy = 0.0
-    for i in eachindex(velocities)
-        kinetic_energy += sum(abs2, velocities[i])
-    end
-    kinetic_energy /= 2.0
-    current_temperature = 2.0 * kinetic_energy / nf
-
-    # Compute random numbers
-    r1 = randn(rng)
-    r2 = sum_noises(nf - 1, rng)
-
-    # Compute the parameters from the thermostat
-    term_1 = exp(-dt_ratio)
-    c2 = (1.0 - term_1) * ktemp / (current_temperature * nf)
-    term_2 = c2 * (r2 + r1^2)
-    term_3 = 2.0 * r1 * sqrt(term_1 * c2)
-    scale = sqrt(term_1 + term_2 + term_3)
-
-    # Apply velocity rescaling
-    for i in eachindex(velocities)
-        velocities[i] = velocities[i] * scale
-    end
-
-    return nothing
-end
-
-function initialize_velocities(positions, ktemp, nf, rng, n_particles)
-    # Initilize the random numbers of the velocities
-    velocities = [StaticArrays.@SVector zeros(3) for _ in 1:length(positions)]
-    sum_v = StaticArrays.@MVector zeros(3)
-    sum_v2 = 0.0
-
-    for i in eachindex(velocities)
-        velocities[i] = randn(rng, size(velocities[i]))
-        # Collect the center of mass, momentum = 1
-        sum_v .+= velocities[i]
-    end
-
-    sum_v ./= n_particles
-
-    for i in eachindex(velocities)
-        # Remove the center of mass momentum
-        velocities[i] = velocities[i] .- sum_v
-        sum_v2 += sum(abs2, velocities[i])
-    end
-
-    fs = sqrt(ktemp / (sum_v2 / nf))
-    for i in eachindex(velocities)
-        velocities[i] = velocities[i] .* fs
-    end
-
-    return velocities
-end
-
 function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=500_000)
     rng = Random.Xoshiro()
     boxl = cbrt(params.n_particles / params.ρ)
@@ -172,7 +39,6 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
     inter_distance = cbrt(1.0 / params.ρ)
     cutoff = 3.0
     dt = 0.005
-    # nu_const = 1.0 * dt
     τ = 100.0 * dt
     # The degrees of freedom
     # Spatial dimension, in this case 3D simulations
