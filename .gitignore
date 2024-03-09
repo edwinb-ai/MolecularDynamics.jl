@@ -1,0 +1,7 @@
+# Personal files
+analysis/
+output
+DinamicaBrowniana.jl
+
+# Julia files
+Manifest.toml
