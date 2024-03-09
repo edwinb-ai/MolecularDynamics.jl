@@ -1,13 +1,15 @@
 using Random
 using StaticArrays
-using LinearAlgebra
-using DelimitedFiles
+using LinearAlgebra: dot
+using DelimitedFiles: writedlm
 using Printf
 using FastPow
 using ThreadPools
 using Distributions: Gamma
 using CellListMap.PeriodicSystems
 import CellListMap.PeriodicSystems: copy_output, reset_output!, reducer
+
+include("initialization.jl")
 
 struct Parameters
     ρ::Float64
@@ -18,37 +20,7 @@ end
 mutable struct EnergyAndForces
     energy::Float64
     virial::Float64
-    forces::Vector{SVector{3,Float64}}
-end
-
-function initialize_simulation!(x, y, z, npart, rc, halfdist)
-    dist = halfdist * 2.0
-
-    # Define the first positions
-    x[1] = -rc + halfdist
-    y[1] = -rc + halfdist
-    z[1] = -rc + halfdist
-
-    # Create a complete lattice
-    for i in 1:(npart - 1)
-        x[i + 1] = x[i] + dist
-        y[i + 1] = y[i]
-        z[i + 1] = z[i]
-
-        if x[i + 1] > rc
-            x[i + 1] = -rc + halfdist
-            y[i + 1] += dist
-            z[i + 1] = z[i]
-
-            if y[i + 1] > rc
-                x[i + 1] = -rc + halfdist
-                y[i + 1] = -rc + halfdist
-                z[i + 1] += dist
-            end
-        end
-    end
-
-    return nothing
+    forces::Vector{StaticArrays.SVector{3,Float64}}
 end
 
 function pseudohs(rij; lambda=50.0)
@@ -90,8 +62,6 @@ function pressure_lrc(cutoff, density, sigma=1.0)
     sr3 = (sigma / cutoff)^3
     result = (2.0 * sr3^3 / 3.0) - sr3
     result *= 16.0 * pi * density^2 / 3.0
-    # delta = sr3^3 - sr3
-    # delta *= 8.0 * pi * density^2 / 3.0
 
     return result
 end
@@ -106,7 +76,7 @@ function reset_output!(output::EnergyAndForces)
     output.virial = 0.0
 
     for i in eachindex(output.forces)
-        output.forces[i] = SVector(0.0, 0.0, 0.0)
+        output.forces[i] = StaticArrays.SVector(0.0, 0.0, 0.0)
     end
 
     return output
@@ -135,28 +105,6 @@ function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
     return output
 end
 
-function init_system(boxl, cutoff, inter_distance; n_particles=10^3)
-    # We can create normal arrays for holding the particles' positions
-    x = zeros(n_particles)
-    y = zeros(n_particles)
-    z = zeros(n_particles)
-    initialize_simulation!(x, y, z, n_particles, boxl / 2.0, inter_distance / 2.0)
-
-    # Now we change the arrays to static versions of it
-    positions = [@SVector [i, j, k] for (i, j, k) in zip(x, y, z)]
-    # Initialize system
-    system = PeriodicSystem(;
-        xpositions=positions,
-        unitcell=[boxl, boxl, boxl],
-        cutoff=cutoff,
-        output=EnergyAndForces(0.0, 0.0, similar(positions)),
-        output_name=:energy_and_forces,
-        parallel=false,
-    )
-
-    return system
-end
-
 function integrate_half(positions, velocities, forces, dt, boxl; pbc=true)
     # ! Important: There is a mass in the force term
     new_velocities = @. velocities + (forces * dt / 2.0)
@@ -174,7 +122,7 @@ function andersen!(velocities, ktemp, const_val, rng)
 
     for i in eachindex(velocities)
         if rand(rng) < const_val
-            noise = @SVector randn(rng, 3)
+            noise = StaticArrays.@SVector randn(rng, 3)
             velocities[i] = noise .* sigma
         end
     end
@@ -233,8 +181,8 @@ end
 
 function initialize_velocities(positions, ktemp, nf, rng, n_particles)
     # Initilize the random numbers of the velocities
-    velocities = [@SVector zeros(3) for _ in 1:length(positions)]
-    sum_v = @MVector zeros(3)
+    velocities = [StaticArrays.@SVector zeros(3) for _ in 1:length(positions)]
+    sum_v = StaticArrays.@MVector zeros(3)
     sum_v2 = 0.0
 
     for i in eachindex(velocities)
@@ -323,9 +271,9 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
             velocities[i] = @. v + (f * dt / 2.0)
         end
 
-        # Apply the Andersen thermostat only during equilibration
+        # Apply the thermostat only during equilibration
+        # ! FIXME: This is very rudimentary for now
         if step <= eq_steps
-            # andersen!(velocities, params.ktemp, nu_const, rng)
             bussi!(velocities, params.ktemp, nf, dt, τ, rng)
         end
         kinetic_energy = 0.0
@@ -371,10 +319,11 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
 end
 
 function main()
-    densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
+    # densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
+    densities = [0.9]
 
-    ThreadPools.@qthreads for d in densities
-        # for d in densities
+    # ThreadPools.@qthreads for d in densities
+    for d in densities
         params = Parameters(d, 0.85, 8^3)
         # Create a new directory with these parameters
         pathname = joinpath(@__DIR__, "bussi-cells_density=$(@sprintf("%.4g", d))")
