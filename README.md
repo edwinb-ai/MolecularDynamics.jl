@@ -9,6 +9,7 @@ A simple molecular dynamics code that samples the canonical ensemble ($`NVT`$).
 - Can handle very large systems thanks to the fantastic cell implementation of [CellListMap.jl](https://github.com/m3g/CellListMap.jl)
 - For now it can compute energy and pressure, but also outputs the trajectory of the simulation for post-processing.
 - The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included.
+  - Benchmarks against LAMMPS and NIST results for the Lennard-Jones system are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
 
 ## TODO
 - Introduce structures to handle polydispersity.
