@@ -35,7 +35,6 @@ function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
     (uij, fij) = lj(d)
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
-    # output.virial += virial / 2.0
     output.energy += uij
     output.forces[i] = @. output.forces[i] + sumies
     output.forces[j] = @. output.forces[j] - sumies

@@ -80,7 +80,6 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
     thermo_file = open(joinpath(pathname, "thermo.txt"), "w")
 
     for step in 1:(eq_steps + prod_steps)
-        # First half of the integration
         for i in eachindex(system.positions, system.energy_and_forces.forces, velocities)
             f = system.energy_and_forces.forces[i]
             x = system.positions[i]
@@ -131,14 +130,23 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
         end
 
         # Save to disk the positions
-        if mod(step, 10000) == 0 && step > eq_steps
+        if mod(step, 1_000) == 0 && step > eq_steps
             # Write to file
             println(trajectory_file, params.n_particles)
             println(trajectory_file, "Frame $step")
-            for i in eachindex(system.positions)
+            for i in eachindex(system.positions, velocities)
                 particle = system.positions[i]
                 Printf.@printf(
-                    io, "%d %d %lf %lf %lf\n", 1, i, particle[1], particle[2], particle[3]
+                    trajectory_file,
+                    "%d %d %lf %lf %lf %lf %lf %lf\n",
+                    1,
+                    i,
+                    particle[1],
+                    particle[2],
+                    particle[3],
+                    velocities[1],
+                    velocities[2],
+                    velocities[3]
                 )
             end
         end
@@ -153,15 +161,17 @@ end
 
 function main()
     densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
+    reps = 10
     # densities = [0.9]
 
-    ThreadPools.@qthreads for d in densities
-        # for d in densities
-        params = Parameters(d, 0.85, 8^3)
-        # Create a new directory with these parameters
-        pathname = joinpath(@__DIR__, "bussi-cells_density=$(@sprintf("%.4g", d))")
-        mkpath(pathname)
-        simulation(params, pathname; eq_steps=100_000, prod_steps=1_000_000)
+    for d in densities
+        ThreadPools.@qthreads for r in 1:reps
+            params = Parameters(d, 0.85, 8^3)
+            # Create a new directory with these parameters
+            pathname = joinpath(@__DIR__, "unwrap_density=$(@sprintf("%.4g", d))", "rep=$r")
+            mkpath(pathname)
+            simulation(params, pathname; eq_steps=1_000_000, prod_steps=1_000_000)
+        end
     end
 
     return nothing
