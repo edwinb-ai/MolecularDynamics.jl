@@ -38,7 +38,7 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
     boxl = cbrt(params.n_particles / params.ρ)
     volume = boxl^3
     inter_distance = cbrt(1.0 / params.ρ)
-    cutoff = 3.0
+    cutoff = 2.5
     dt = 0.005
     τ = 100.0 * dt
     # The degrees of freedom
@@ -130,12 +130,13 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
         end
 
         # Save to disk the positions
-        if mod(step, 1_000) == 0 && step > eq_steps
+        if mod(step, 10) == 0 && step > eq_steps
             # Write to file
             println(trajectory_file, params.n_particles)
             println(trajectory_file, "Frame $step")
             for i in eachindex(system.positions, velocities)
                 particle = system.positions[i]
+                velocity = velocities[i]
                 Printf.@printf(
                     trajectory_file,
                     "%d %d %lf %lf %lf %lf %lf %lf\n",
@@ -144,9 +145,9 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
                     particle[1],
                     particle[2],
                     particle[3],
-                    velocities[1],
-                    velocities[2],
-                    velocities[3]
+                    velocity[1],
+                    velocity[2],
+                    velocity[3]
                 )
             end
         end
@@ -160,18 +161,17 @@ function simulation(params::Parameters, pathname; eq_steps=100_000, prod_steps=5
 end
 
 function main()
-    densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
-    reps = 10
-    # densities = [0.9]
+    # densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
+    # reps = 10
+    densities = [0.844]
+    ktemp = 1.2
 
     for d in densities
-        ThreadPools.@qthreads for r in 1:reps
-            params = Parameters(d, 0.85, 8^3)
-            # Create a new directory with these parameters
-            pathname = joinpath(@__DIR__, "unwrap_density=$(@sprintf("%.4g", d))", "rep=$r")
-            mkpath(pathname)
-            simulation(params, pathname; eq_steps=1_000_000, prod_steps=1_000_000)
-        end
+        params = Parameters(d, ktemp, 500)
+        # Create a new directory with these parameters
+        pathname = joinpath(@__DIR__, "density=$(@sprintf("%.4g", d))")
+        mkpath(pathname)
+        simulation(params, pathname; eq_steps=100_000, prod_steps=1_000_000)
     end
 
     return nothing
