@@ -73,7 +73,7 @@ function init_system(
     end
 
     # Initialize system
-    system = PeriodicSystem(;
+    system = ParticleSystem(;
         xpositions=positions,
         unitcell=[boxl, boxl, boxl],
         cutoff=cutoff,

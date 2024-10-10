@@ -6,8 +6,8 @@ using Printf
 using FastPow
 using ThreadPools
 using Distributions: Gamma
-using CellListMap.PeriodicSystems
-import CellListMap.PeriodicSystems: copy_output, reset_output!, reducer
+using CellListMap
+import CellListMap: copy_output, reset_output!, reducer
 using Packmol: pack_monoatomic!
 
 include("initialization.jl")
@@ -163,11 +163,11 @@ end
 function main()
     # densities = [0.776, 0.78, 0.82, 0.84, 0.86, 0.9]
     # reps = 10
-    densities = [0.844]
-    ktemp = 1.2
+    densities = [0.9]
+    ktemp = 0.85
 
     for d in densities
-        params = Parameters(d, ktemp, 500)
+        params = Parameters(d, ktemp, 4000)
         # Create a new directory with these parameters
         pathname = joinpath(@__DIR__, "density=$(@sprintf("%.4g", d))")
         mkpath(pathname)
