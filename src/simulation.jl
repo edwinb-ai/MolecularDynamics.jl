@@ -13,8 +13,6 @@ function initialize_state(
     nf = dimension * (params.n_particles - 1.0)
 
     # Initialize the system
-    cutoff = 1.5
-
     (system, boxl) = initialize_simulation(
         params, rng, dimension, diameters, pathname; file=from_file, random_init=random_init
     )

@@ -37,6 +37,7 @@ function init_system(
         x = zeros(n_particles)
         y = zeros(n_particles)
         z = zeros(n_particles)
+        # ! FIXME: This is now broken, waiting for Crystals.jl implementation
         initialize_cubic!(x, y, z, n_particles, boxl / 2.0, inter_distance / 2.0)
 
         # Now we change the arrays to static versions of it
