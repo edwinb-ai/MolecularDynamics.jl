@@ -37,7 +37,7 @@ function init_system(
         x = zeros(n_particles)
         y = zeros(n_particles)
         z = zeros(n_particles)
-        # ! FIXME: This is now broken, waiting for Crystals.jl implementation
+        # ! FIXME: This is now broken, waiting for SimpleCrystals.jl implementation
         initialize_cubic!(x, y, z, n_particles, boxl / 2.0, inter_distance / 2.0)
 
         # Now we change the arrays to static versions of it
@@ -89,7 +89,7 @@ function initialize_simulation(
 
         @info "Reading done."
     else
-        @info "Creating a new system from packing."
+        @info "Creating a new system with random positions and no overlaps."
         # Now we compute the effective size of the box
         inter_distance = (1.0 / params.ρ)^(1 / dimension)
         boxl = (params.n_particles / params.ρ)^(1 / dimension)

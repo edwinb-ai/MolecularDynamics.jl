@@ -14,9 +14,9 @@ struct SimulationState{T,U,V,W,M}
     # The size of the simulation box
     boxl::Float64
     # The container for the velocities
-    velocities::M
+    velocities::W
     # The images for the particles
-    images::Vector{W}
+    images::M
     # The dimension of the system
     dimension::Int
     # The degrees of freedom
