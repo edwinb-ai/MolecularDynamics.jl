@@ -4,7 +4,7 @@ struct Parameters
     dt::Float64
 end
 
-struct SimulationState{T,U,V,W}
+struct SimulationState{T,U,V,W,M}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
@@ -14,7 +14,7 @@ struct SimulationState{T,U,V,W}
     # The size of the simulation box
     boxl::Float64
     # The container for the velocities
-    velocities::Vector{SVector{2,Float64}}
+    velocities::M
     # The images for the particles
     images::Vector{W}
     # The dimension of the system

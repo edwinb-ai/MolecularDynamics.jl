@@ -85,10 +85,10 @@ function init_system(
     return system
 end
 
-function initialize_velocities(positions, ktemp, nf, rng, n_particles)
+function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
     # Initilize the random numbers of the velocities
-    velocities = [StaticArrays.@SVector zeros(3) for _ in 1:length(positions)]
-    sum_v = StaticArrays.@MVector zeros(3)
+    velocities = [StaticArrays.@SVector zeros(dimension) for _ in 1:length(positions)]
+    sum_v = StaticArrays.@MVector zeros(dimension)
     sum_v2 = 0.0
 
     for i in eachindex(velocities)

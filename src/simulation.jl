@@ -1,7 +1,8 @@
 function initialize_state(
     params::Parameters,
     ktemp::Float64,
-    pathname::String;
+    pathname::String,
+    diameters::Vector{Float64};
     from_file::String="",
     dimension::Int=3,
 )
@@ -26,7 +27,9 @@ function initialize_state(
         n_particles=params.n_particles,
     )
     # Initialize the velocities of the system by having the correct temperature
-    velocities = initialize_velocities(ktemp, nf, rng, params.n_particles)
+    velocities = initialize_velocities(
+        system.positions, ktemp, nf, rng, params.n_particles, dimension
+    )
     # Adjust the particles using the velocities
     for i in eachindex(system.positions)
         system.positions[i] = @. system.positions[i] - (velocities[i] * params.dt)
@@ -135,9 +138,7 @@ function run_simulation!(
         )
         reset_output!(system.energy_and_forces)
         CellListMap.map_pairwise!(
-            (x, y, i, j, d2, output) ->
-                energy_and_forces!(x, y, i, j, d2, output, diameters),
-            system,
+            (x, y, i, j, d2, output) -> energy_and_forces!(x, y, i, j, d2, output), system
         )
         integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
 
