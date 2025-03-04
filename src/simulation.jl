@@ -14,18 +14,9 @@ function initialize_state(
 
     # Initialize the system
     cutoff = 1.5
-    inter_distance = (1.0 / params.ρ)^(1 / dimension)
-    boxl = (params.n_particles / params.ρ)^(1 / dimension)
-    system = init_system(
-        boxl,
-        cutoff,
-        inter_distance,
-        rng,
-        pathname,
-        dimension,
-        diameters;
-        random=random_init,
-        n_particles=params.n_particles,
+
+    (system, boxl) = initialize_simulation(
+        params, rng, dimension, diameters, pathname; file=from_file, random_init=random_init
     )
     # Initialize the velocities of the system by having the correct temperature
     velocities = initialize_velocities(
@@ -91,7 +82,7 @@ function finalize_simulation!(
     )
 
     if compress && isfile(trajectory_file)
-        compress_gz(trajectory_file)
+        compress_zstd(trajectory_file)
     end
 
     return nothing

@@ -140,13 +140,13 @@ function read_file(filepath)
     return box_l, positions, diameters
 end
 
-function compress_gz(filepath)
+function compress_zstd(filepath)
     # Attach the suffix to the original file
-    output_file = filepath * ".gz"
+    output_file = filepath * ".zst"
 
     open(filepath, "r") do infile
         # Open the output file for writing, with gzip compression
-        open(GzipCompressorStream, output_file, "w") do outfile
+        open(ZstdCompressorStream, output_file, "w") do outfile
             # Write the contents of the input file to the compressed output file
             write(outfile, read(infile))
         end

@@ -1,33 +1,3 @@
-function initialize_cubic!(x, y, z, npart, rc, halfdist)
-    dist = halfdist * 2.0
-
-    # Define the first positions
-    x[1] = -rc + halfdist
-    y[1] = -rc + halfdist
-    z[1] = -rc + halfdist
-
-    # Create a complete lattice
-    for i in 1:(npart - 1)
-        x[i + 1] = x[i] + dist
-        y[i + 1] = y[i]
-        z[i + 1] = z[i]
-
-        if x[i + 1] > rc
-            x[i + 1] = -rc + halfdist
-            y[i + 1] += dist
-            z[i + 1] = z[i]
-
-            if y[i + 1] > rc
-                x[i + 1] = -rc + halfdist
-                y[i + 1] = -rc + halfdist
-                z[i + 1] += dist
-            end
-        end
-    end
-
-    return nothing
-end
-
 function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
     coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{dimension,Float64}, npart)
     pack_monoatomic!(coordinates, unitcell, tol; parallel=false, iprint=100)
@@ -84,6 +54,60 @@ function init_system(
     )
 
     return system
+end
+
+function initialize_simulation(
+    params::Parameters, rng, dimension, diameters, pathname; file="", random_init=false
+)
+    # Always leave a fixed cutoff
+    cutoff = 1.5
+    positions = []
+    boxl = 0.0
+    system = nothing
+
+    if isfile(file)
+        @info "Reading from file..."
+        (boxl, positions, diameters) = read_file(file)
+
+        # Initialize system
+        unitcell = boxl .* ones(dimension)
+        system = CellListMap.ParticleSystem(;
+            xpositions=positions,
+            unitcell=unitcell,
+            cutoff=cutoff,
+            output=EnergyAndForces(0.0, 0.0, similar(positions)),
+            output_name=:energy_and_forces,
+            parallel=false,
+        )
+
+        # Save the initial configuration to a file
+        filepath = joinpath(pathname, "initial.xyz")
+        write_to_file(
+            filepath, 0, boxl, params.n_particles, positions, diameters, dimension
+        )
+
+        @info "Reading done."
+    else
+        @info "Creating a new system from packing."
+        # Now we compute the effective size of the box
+        inter_distance = (1.0 / params.ρ)^(1 / dimension)
+        boxl = (params.n_particles / params.ρ)^(1 / dimension)
+
+        # Initialize the system in a lattice configuration
+        system = init_system(
+            boxl,
+            cutoff,
+            inter_distance,
+            rng,
+            pathname,
+            dimension,
+            diameters;
+            random=random_init,
+            n_particles=params.n_particles,
+        )
+    end
+
+    return system, boxl
 end
 
 function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
