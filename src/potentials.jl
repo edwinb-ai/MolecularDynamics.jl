@@ -1,4 +1,8 @@
-function pseudohs(rij; lambda=50.0)
+# Some numerical constants
+const b_param = 1.0204081632653061
+const a_param = 134.5526623421209
+
+FastPow.@fastpow function pseudohs(rij; lambda=50.0)
     b_param = lambda / (lambda - 1.0)
     a_param = lambda * b_param^(lambda - 1.0)
     uij = 0.0
@@ -6,9 +10,10 @@ function pseudohs(rij; lambda=50.0)
 
     if rij < b_param
         uij = a_param * ((1.0 / rij)^lambda - (1.0 / rij)^(lambda - 1.0))
+        uij += 1.0
         fij = lambda * (1.0 / rij)^(lambda + 1.0)
         fij -= (lambda - 1.0) * (1.0 / rij)^lambda
-        fij *= -a_param
+        fij *= a_param
     end
 
     return uij, fij

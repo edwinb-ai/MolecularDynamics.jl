@@ -77,7 +77,8 @@ function write_to_file_lammps(
         Printf.@printf(io, "ITEM: NUMBER OF ATOMS\n%d\n", n_particles)
         Printf.@printf(
             io,
-            "ITEM: BOX BOUNDS pp pp pp\n0.0 %lf\n0.0 %lf\n0.0 0.0\nITEM: ATOMS id type radius x y z xu yu zu\n",
+            "ITEM: BOX BOUNDS pp pp pp\n0.0 %lf\n0.0 %lf\n0.0 %lf\nITEM: ATOMS id type radius x y z xu yu zu\n",
+            boxl,
             boxl,
             boxl
         )
@@ -93,10 +94,10 @@ function write_to_file_lammps(
                 diameters[i] / 2.0,
                 particle[1],
                 particle[2],
-                0.0,
+                particle[3],
                 unwrapped[1],
                 unwrapped[2],
-                0.0
+                unwrapped[3]
             )
         end
     end

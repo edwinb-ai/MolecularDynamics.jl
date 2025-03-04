@@ -49,7 +49,7 @@ function init_system(
     unitcell = boxl .* ones(dimension)
 
     if random
-        positions = initialize_random(unitcell, n_particles, rng, dimension; tol=2.0)
+        positions = initialize_random(unitcell, n_particles, rng, dimension; tol=1.1)
         # Save the initial configuration to a file
         write_to_file(
             joinpath(pathname, "packed.xyz"),
@@ -76,7 +76,7 @@ function init_system(
     # Initialize system
     system = ParticleSystem(;
         xpositions=positions,
-        unitcell=[boxl, boxl, boxl],
+        unitcell=unitcell,
         cutoff=cutoff,
         output=EnergyAndForces(0.0, 0.0, similar(positions)),
         output_name=:energy_and_forces,

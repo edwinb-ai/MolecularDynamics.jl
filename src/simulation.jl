@@ -13,7 +13,7 @@ function initialize_state(
     nf = dimension * (params.n_particles - 1.0)
 
     # Initialize the system
-    cutoff = 2.0
+    cutoff = 1.5
     inter_distance = (1.0 / params.ρ)^(1 / dimension)
     boxl = (params.n_particles / params.ρ)^(1 / dimension)
     system = init_system(
@@ -58,18 +58,16 @@ function initialize_state(
     return state
 end
 
-function ensemble_step!(
-    ::NVE, velocities, params::Parameters, nf::Float64, state::SimulationState
-)
-    return compute_temperature(velocities, nf)
+function ensemble_step!(::NVE, velocities, params::Parameters, state::SimulationState)
+    return compute_temperature(velocities, state.nf)
 end
 
 function ensemble_step!(
-    ensemble::NVT, velocities, params::Parameters, nf::Float64, state::SimulationState
+    ensemble::NVT, velocities, params::Parameters, state::SimulationState
 )
     # Apply thermostat, e.g., Bussi thermostat
-    bussi!(velocities, ensemble.ktemp, nf, params.dt, ensemble.tau, state.rng)
-    return compute_temperature(velocities, nf)
+    bussi!(velocities, ensemble.ktemp, state.nf, params.dt, ensemble.tau, state.rng)
+    return compute_temperature(velocities, state.nf)
 end
 
 function finalize_simulation!(
@@ -114,6 +112,10 @@ function run_simulation!(
     # Remove the files if they existed, and return the files handles
     (trajectory_file, thermo_file) = open_files(pathname, traj_name, thermo_name)
     format_string = Printf.Format("%d %.6f %.6f %.6f\n")
+    # Write the columns for the thermo file
+    open(thermo_file, "a") do io
+        println(io, "# Step Energy Temperature Pressure")
+    end
 
     # Extract parameters from the state
     system = state.system
@@ -155,7 +157,7 @@ function run_simulation!(
         integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
 
         # Apply ensemble-specific logic
-        temperature = ensemble_step!(ensemble, velocities, params, nf, state)
+        temperature = ensemble_step!(ensemble, velocities, params, state)
 
         # Accumulate values for thermodynamics
         if mod(step, 10) == 0
