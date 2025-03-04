@@ -59,3 +59,22 @@ function bussi!(velocities, ktemp, nf, dt, τ, rng)
 
     return nothing
 end
+
+function compute_kinetic(velocities)
+    kinetic_energy = 0.0
+
+    for i in eachindex(velocities)
+        kinetic_energy += sum(abs2, velocities[i])
+    end
+
+    kinetic_energy /= 2.0
+
+    return kinetic_energy
+end
+
+function compute_temperature(velocities, nf)
+    kinetic_energy = compute_kinetic(velocities)
+    temperature = 2.0 * kinetic_energy / nf
+
+    return temperature
+end

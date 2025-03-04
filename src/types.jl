@@ -38,3 +38,9 @@ struct Brownian <: Ensemble
 end
 
 struct NVE <: Ensemble end
+
+mutable struct EnergyAndForces{T}
+    energy::Float64
+    virial::Float64
+    forces::T
+end

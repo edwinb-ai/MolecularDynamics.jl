@@ -28,40 +28,41 @@ function initialize_cubic!(x, y, z, npart, rc, halfdist)
     return nothing
 end
 
-function initialize_random(unitcell, npart, rng; tol=1.0)
-    coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{3,Float64}, npart)
+function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
+    coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{dimension,Float64}, npart)
     pack_monoatomic!(coordinates, unitcell, tol; parallel=false, iprint=100)
 
     return coordinates
 end
 
 function init_system(
-    boxl, cutoff, inter_distance, rng, pathname; random=true, n_particles=10^3
+    boxl,
+    cutoff,
+    inter_distance,
+    rng,
+    pathname,
+    dimension,
+    diameters;
+    random=true,
+    n_particles=10^3,
 )
-    unitcell = [boxl, boxl, boxl]
+    unitcell = boxl .* ones(dimension)
 
     if random
-        positions = initialize_random(unitcell, n_particles, rng; tol=1.2)
+        positions = initialize_random(unitcell, n_particles, rng, dimension; tol=2.0)
         # Save the initial configuration to a file
-        open(joinpath(pathname, "initial.xyz"), "w") do io
-            Printf.@printf(io, "%d\n", n_particles)
-            # Print size of box
-            Printf.@printf(
-                io,
-                "Lattice=\"%lf 0.0 0.0 0.0 %lf 0.0 0.0 0.0 %lf\"\n",
-                unitcell[1],
-                unitcell[2],
-                unitcell[3],
-            )
-            # Print coordinates
-            for i in eachindex(positions)
-                particle = positions[i]
-                Printf.@printf(
-                    io, "%d %d %lf %lf %lf\n", 1, i, particle[1], particle[2], particle[3]
-                )
-            end
-        end
+        write_to_file(
+            joinpath(pathname, "packed.xyz"),
+            0,
+            boxl,
+            n_particles,
+            positions,
+            diameters,
+            dimension;
+            mode="w",
+        )
     else
+        # ! This has to change depending on the dimension
         # We can create normal arrays for holding the particles' positions
         x = zeros(n_particles)
         y = zeros(n_particles)

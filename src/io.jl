@@ -35,27 +35,32 @@ function generate_log_times(; max_iter::Int=10000, logn::Int=40, logbase::Float6
     return logs
 end
 
-function write_to_file(filepath, step, boxl, n_particles, positions, diameters; mode="a")
+function write_to_file(
+    filepath, step, boxl, n_particles, positions, diameters, dimension; mode="a"
+)
     # Write to file
     open(filepath, mode) do io
         println(io, n_particles)
         Printf.@printf(
             io,
-            "Lattice=\"%lf 0.0 0.0 0.0 %lf 0.0 0.0 0.0 0.0\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:2 Time=%.6g\n",
+            "Lattice=\"%lf 0.0 0.0 0.0 %lf 0.0 0.0 0.0 %lf\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
             boxl,
             boxl,
-            step
+            boxl,
+            dimension,
+            step,
         )
         for i in eachindex(diameters, positions)
             particle = positions[i]
             Printf.@printf(
                 io,
-                "%d %d %lf %lf %lf\n",
+                "%d %d %lf %lf %lf %lf\n",
                 1,
                 i,
                 diameters[i] / 2.0,
                 particle[1],
                 particle[2],
+                particle[3],
             )
         end
     end

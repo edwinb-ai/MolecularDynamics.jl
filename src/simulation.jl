@@ -5,6 +5,7 @@ function initialize_state(
     diameters::Vector{Float64};
     from_file::String="",
     dimension::Int=3,
+    random_init=false,
 )
     rng = Random.Xoshiro()
 
@@ -12,7 +13,7 @@ function initialize_state(
     nf = dimension * (params.n_particles - 1.0)
 
     # Initialize the system
-    cutoff = 2.5
+    cutoff = 2.0
     inter_distance = (1.0 / params.ρ)^(1 / dimension)
     boxl = (params.n_particles / params.ρ)^(1 / dimension)
     system = init_system(
@@ -20,8 +21,10 @@ function initialize_state(
         cutoff,
         inter_distance,
         rng,
-        pathname;
-        random=true,
+        pathname,
+        dimension,
+        diameters;
+        random=random_init,
         n_particles=params.n_particles,
     )
     # Initialize the velocities of the system by having the correct temperature
@@ -36,11 +39,21 @@ function initialize_state(
     reset_output!(system.energy_and_forces)
 
     # Initialize the array of images
-    images = [
-        StaticArrays.@MVector zeros(Int32, Int(dimension)) for _ in eachindex(velocities)
-    ]
+    images = [StaticArrays.@MVector zeros(Int32, dimension) for _ in eachindex(velocities)]
 
     state = SimulationState(system, diameters, rng, boxl, velocities, images, dimension, nf)
+
+    # Let's write the initial configuration to a file
+    write_to_file(
+        joinpath(pathname, "init.xyz"),
+        0,
+        boxl,
+        params.n_particles,
+        system.positions,
+        diameters,
+        dimension;
+        mode="w",
+    )
 
     return state
 end
@@ -74,7 +87,8 @@ function finalize_simulation!(
         state.boxl,
         params.n_particles,
         state.system.positions,
-        state.diameters;
+        state.diameters,
+        state.dimension;
         mode="w",
     )
 
