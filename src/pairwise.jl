@@ -32,7 +32,7 @@ end
 function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
     d = sqrt(d2)
     r = x - y
-    (uij, fij) = lj(d)
+    (uij, fij) = phs(d)
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij

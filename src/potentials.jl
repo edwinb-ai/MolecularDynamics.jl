@@ -1,4 +1,4 @@
-function pseudohs(rij; lambda=50.0)
+FastPow.@fastpow function pseudohs(rij; lambda=50.0)
     b_param = lambda / (lambda - 1.0)
     a_param = lambda * b_param^(lambda - 1.0)
     ktemp = 1.0
