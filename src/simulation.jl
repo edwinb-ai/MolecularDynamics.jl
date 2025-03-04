@@ -13,8 +13,6 @@ function initialize_state(
 
     # Initialize the system
     cutoff = 2.5
-    dt = 0.005
-    τ = 100.0 * dt
     inter_distance = (1.0 / params.ρ)^(1 / dimension)
     boxl = (params.n_particles / params.ρ)^(1 / dimension)
     system = init_system(
