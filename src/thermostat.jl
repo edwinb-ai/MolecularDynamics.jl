@@ -1,3 +1,19 @@
+abstract type Ensemble end
+
+struct NVT <: Ensemble
+    # Target temperature
+    ktemp::Float64
+    # Damping constant
+    tau::Float64
+end
+
+struct Brownian <: Ensemble
+    # Target temperature
+    ktemp::Float64
+end
+
+struct NVE <: Ensemble end
+
 function andersen!(velocities, ktemp, const_val, rng)
     sigma = sqrt(ktemp)
 
