@@ -7,7 +7,7 @@ microcanonical ensemble ($`NVE`$).
 
 It can be used in as a module, here a simple example script.
 
-```
+```julia
 using Printf
 using MolecularDynamics
 
