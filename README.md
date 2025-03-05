@@ -5,7 +5,7 @@ microcanonical ensemble ($`NVE`$).
 
 ### Example
 
-It can be used in as a module, here a simple example script.
+It can be used in as a module, here is a simple example script.
 
 ```julia
 using Printf
@@ -68,8 +68,8 @@ main()
 - The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included.
   - Benchmarks against LAMMPS and NIST results for the Lennard-Jones system are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
 - Initial configurations can be created in a random configuration. Random configurations are then packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
+- Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd`.
 
 ## TODO
+- Make the user change the interaction potential. Right now, only the pseudo hard-sphere and Lennard-Jones are implemented.
 - Introduce structures to handle polydispersity.
-- Add other output formats (LAMMPS, Extended XYZ, etc.).
-- Add instructions on how to use it. For now, it is not really usable unless you dig into the code and modify it yourself.
