@@ -11,7 +11,7 @@ function register_images_and_wrap!(x, image, boxl)
     return wrapped_x
 end
 
-function integrate_half!(positions, images, velocities, forces, dt::Float64, boxl::Float64)
+function integrate_half!(positions, images, velocities, forces, dt, boxl)
     for i in eachindex(positions, forces, velocities)
         f = forces[i]
         x = positions[i]
@@ -45,4 +45,17 @@ function ensemble_step!(
     # Apply thermostat, e.g., Bussi thermostat
     bussi!(velocities, ensemble.ktemp, state.nf, params.dt, ensemble.tau, state.rng)
     return compute_temperature(velocities, state.nf)
+end
+
+function integrate_brownian!(positions, images, forces, dt, boxl, rng, dimension, ktemp)
+    for i in eachindex(positions, forces)
+        f = forces[i]
+        x = positions[i]
+        sigma = sqrt(2.0 * dt)
+        noise = @SVector randn(rng, dimension)
+        positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
+        positions[i] = register_images_and_wrap!(positions[i], images[i], boxl)
+    end
+
+    return nothing
 end
