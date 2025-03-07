@@ -1,16 +1,3 @@
-function andersen!(velocities, ktemp, const_val, rng)
-    sigma = sqrt(ktemp)
-
-    for i in eachindex(velocities)
-        if rand(rng) < const_val
-            noise = StaticArrays.@SVector randn(rng, 3)
-            velocities[i] = noise .* sigma
-        end
-    end
-
-    return nothing
-end
-
 function sum_noises(nf, rng)
     result = 0.0
 
