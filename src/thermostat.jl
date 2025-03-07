@@ -1,16 +1,3 @@
-function andersen!(velocities, ktemp, const_val, rng)
-    sigma = sqrt(ktemp)
-
-    for i in eachindex(velocities)
-        if rand(rng) < const_val
-            noise = StaticArrays.@SVector randn(rng, 3)
-            velocities[i] = noise .* sigma
-        end
-    end
-
-    return nothing
-end
-
 function sum_noises(nf, rng)
     result = 0.0
 
@@ -58,4 +45,23 @@ function bussi!(velocities, ktemp, nf, dt, τ, rng)
     end
 
     return nothing
+end
+
+function compute_kinetic(velocities)
+    kinetic_energy = 0.0
+
+    for i in eachindex(velocities)
+        kinetic_energy += sum(abs2, velocities[i])
+    end
+
+    kinetic_energy /= 2.0
+
+    return kinetic_energy
+end
+
+function compute_temperature(velocities, nf)
+    kinetic_energy = compute_kinetic(velocities)
+    temperature = 2.0 * kinetic_energy / nf
+
+    return temperature
 end

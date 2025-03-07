@@ -1,9 +1,3 @@
-mutable struct EnergyAndForces
-    energy::Float64
-    virial::Float64
-    forces::Vector{StaticArrays.SVector{3,Float64}}
-end
-
 "Custom copy, reset and reducer functions"
 function copy_output(x::EnergyAndForces)
     return EnergyAndForces(copy(x.energy), copy(x.virial), copy(x.forces))
@@ -32,7 +26,7 @@ end
 function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
     d = sqrt(d2)
     r = x - y
-    (uij, fij) = lj(d)
+    (uij, fij) = pseudohs(d)
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij

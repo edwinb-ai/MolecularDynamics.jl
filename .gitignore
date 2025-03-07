@@ -2,6 +2,9 @@
 analysis/
 output
 DinamicaBrowniana.jl
+# Data files
+*.txt
+*.xyz
 
 # Julia files
 Manifest.toml

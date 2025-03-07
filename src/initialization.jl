@@ -1,94 +1,77 @@
-function initialize_cubic!(x, y, z, npart, rc, halfdist)
-    dist = halfdist * 2.0
-
-    # Define the first positions
-    x[1] = -rc + halfdist
-    y[1] = -rc + halfdist
-    z[1] = -rc + halfdist
-
-    # Create a complete lattice
-    for i in 1:(npart - 1)
-        x[i + 1] = x[i] + dist
-        y[i + 1] = y[i]
-        z[i + 1] = z[i]
-
-        if x[i + 1] > rc
-            x[i + 1] = -rc + halfdist
-            y[i + 1] += dist
-            z[i + 1] = z[i]
-
-            if y[i + 1] > rc
-                x[i + 1] = -rc + halfdist
-                y[i + 1] = -rc + halfdist
-                z[i + 1] += dist
-            end
-        end
-    end
-
-    return nothing
-end
-
-function initialize_random(unitcell, npart, rng; tol=1.0)
-    coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{3,Float64}, npart)
+function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
+    coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{dimension,Float64}, npart)
     pack_monoatomic!(coordinates, unitcell, tol; parallel=false, iprint=100)
 
     return coordinates
 end
 
-function init_system(
-    boxl, cutoff, inter_distance, rng, pathname; random=true, n_particles=10^3
+function initialize_simulation(
+    params::Parameters, rng, dimension, diameters, pathname; file="", random_init=false
 )
-    unitcell = [boxl, boxl, boxl]
+    # Always leave a fixed cutoff
+    cutoff = 1.5
+    boxl = 0.0
+    system = nothing
 
-    if random
-        positions = initialize_random(unitcell, n_particles, rng; tol=1.2)
+    if isfile(file)
+        @info "Reading from file..."
+        (boxl, positions, diameters) = read_file(file)
+
+        # Initialize system
+        unitcell = boxl .* ones(dimension)
+        system = CellListMap.ParticleSystem(;
+            xpositions=positions,
+            unitcell=unitcell,
+            cutoff=cutoff,
+            output=EnergyAndForces(0.0, 0.0, similar(positions)),
+            output_name=:energy_and_forces,
+            parallel=false,
+        )
+
         # Save the initial configuration to a file
-        open(joinpath(pathname, "initial.xyz"), "w") do io
-            Printf.@printf(io, "%d\n", n_particles)
-            # Print size of box
-            Printf.@printf(
-                io,
-                "Lattice=\"%lf 0.0 0.0 0.0 %lf 0.0 0.0 0.0 %lf\"\n",
-                unitcell[1],
-                unitcell[2],
-                unitcell[3],
-            )
-            # Print coordinates
-            for i in eachindex(positions)
-                particle = positions[i]
-                Printf.@printf(
-                    io, "%d %d %lf %lf %lf\n", 1, i, particle[1], particle[2], particle[3]
-                )
-            end
-        end
-    else
-        # We can create normal arrays for holding the particles' positions
-        x = zeros(n_particles)
-        y = zeros(n_particles)
-        z = zeros(n_particles)
-        initialize_cubic!(x, y, z, n_particles, boxl / 2.0, inter_distance / 2.0)
+        filepath = joinpath(pathname, "initial.xyz")
+        write_to_file(
+            filepath, 0, boxl, params.n_particles, positions, diameters, dimension
+        )
 
-        # Now we change the arrays to static versions of it
-        positions = [@SVector [i, j, k] for (i, j, k) in zip(x, y, z)]
+        @info "Reading done."
+    elseif random_init
+        @info "Creating a new system with random positions and no overlaps."
+        # Now we compute the effective size of the box
+        boxl = (params.n_particles / params.ρ)^(1 / dimension)
+        unitcell = boxl .* ones(dimension)
+
+        positions = initialize_random(unitcell, params.n_particles, rng, dimension; tol=1.1)
+        # Save the initial configuration to a file
+        write_to_file(
+            joinpath(pathname, "packed.xyz"),
+            0,
+            boxl,
+            params.n_particles,
+            positions,
+            diameters,
+            dimension;
+            mode="w",
+        )
+
+        # Initialize system
+        system = ParticleSystem(;
+            xpositions=positions,
+            unitcell=unitcell,
+            cutoff=cutoff,
+            output=EnergyAndForces(0.0, 0.0, similar(positions)),
+            output_name=:energy_and_forces,
+            parallel=false,
+        )
     end
 
-    # Initialize system
-    system = ParticleSystem(;
-        xpositions=positions,
-        unitcell=[boxl, boxl, boxl],
-        cutoff=cutoff,
-        output=EnergyAndForces(0.0, 0.0, similar(positions)),
-        output_name=:energy_and_forces,
-        parallel=false,
-    )
-
-    return system
+    return system, boxl
 end
 
-function initialize_velocities(positions, ktemp, nf, rng, n_particles)
+function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
     # Initilize the random numbers of the velocities
-    velocities = [StaticArrays.@SVector zeros(3) for _ in 1:length(positions)]
-    sum_v = StaticArrays.@MVector zeros(3)
+    velocities = [zeros(SVector{dimension,Float64}) for _ in 1:length(positions)]
+    sum_v = StaticArrays.@MVector zeros(dimension)
     sum_v2 = 0.0
 
     for i in eachindex(velocities)
@@ -111,4 +94,53 @@ function initialize_velocities(positions, ktemp, nf, rng, n_particles)
     end
 
     return velocities
+end
+
+function initialize_state(
+    params::Parameters,
+    ktemp::Float64,
+    pathname::String,
+    diameters::Vector{Float64};
+    from_file::String="",
+    dimension::Int=3,
+    random_init=false,
+)
+    rng = Random.Xoshiro()
+
+    # The degrees of freedom
+    nf = dimension * (params.n_particles - 1.0)
+
+    # Initialize the system
+    (system, boxl) = initialize_simulation(
+        params, rng, dimension, diameters, pathname; file=from_file, random_init=random_init
+    )
+    # Initialize the velocities of the system by having the correct temperature
+    velocities = initialize_velocities(
+        system.positions, ktemp, nf, rng, params.n_particles, dimension
+    )
+    # Adjust the particles using the velocities
+    for i in eachindex(system.positions)
+        system.positions[i] = @. system.positions[i] - (velocities[i] * params.dt)
+    end
+    # Zero out the arrays
+    reset_output!(system.energy_and_forces)
+
+    # Initialize the array of images
+    images = [zeros(StaticArrays.MVector{dimension,Int32}) for _ in eachindex(velocities)]
+
+    state = SimulationState(system, diameters, rng, boxl, velocities, images, dimension, nf)
+
+    # Let's write the initial configuration to a file
+    write_to_file(
+        joinpath(pathname, "init.xyz"),
+        0,
+        boxl,
+        params.n_particles,
+        system.positions,
+        diameters,
+        dimension;
+        mode="w",
+    )
+
+    return state
 end
