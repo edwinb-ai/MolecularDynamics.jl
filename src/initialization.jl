@@ -5,58 +5,6 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
     return coordinates
 end
 
-function init_system(
-    boxl,
-    cutoff,
-    inter_distance,
-    rng,
-    pathname,
-    dimension,
-    diameters;
-    random=true,
-    n_particles=10^3,
-)
-    unitcell = boxl .* ones(dimension)
-
-    if random
-        positions = initialize_random(unitcell, n_particles, rng, dimension; tol=1.1)
-        # Save the initial configuration to a file
-        write_to_file(
-            joinpath(pathname, "packed.xyz"),
-            0,
-            boxl,
-            n_particles,
-            positions,
-            diameters,
-            dimension;
-            mode="w",
-        )
-    else
-        # ! This has to change depending on the dimension
-        # We can create normal arrays for holding the particles' positions
-        x = zeros(n_particles)
-        y = zeros(n_particles)
-        z = zeros(n_particles)
-        # ! FIXME: This is now broken, waiting for SimpleCrystals.jl implementation
-        initialize_cubic!(x, y, z, n_particles, boxl / 2.0, inter_distance / 2.0)
-
-        # Now we change the arrays to static versions of it
-        positions = [@SVector [i, j, k] for (i, j, k) in zip(x, y, z)]
-    end
-
-    # Initialize system
-    system = ParticleSystem(;
-        xpositions=positions,
-        unitcell=unitcell,
-        cutoff=cutoff,
-        output=EnergyAndForces(0.0, 0.0, similar(positions)),
-        output_name=:energy_and_forces,
-        parallel=false,
-    )
-
-    return system
-end
-
 function initialize_simulation(
     params::Parameters, rng, dimension, diameters, pathname; file="", random_init=false
 )
@@ -93,18 +41,29 @@ function initialize_simulation(
         # Now we compute the effective size of the box
         inter_distance = (1.0 / params.ρ)^(1 / dimension)
         boxl = (params.n_particles / params.ρ)^(1 / dimension)
+        unitcell = boxl .* ones(dimension)
 
-        # Initialize the system in a lattice configuration
-        system = init_system(
+        positions = initialize_random(unitcell, params.n_particles, rng, dimension; tol=1.1)
+        # Save the initial configuration to a file
+        write_to_file(
+            joinpath(pathname, "packed.xyz"),
+            0,
             boxl,
-            cutoff,
-            inter_distance,
-            rng,
-            pathname,
-            dimension,
-            diameters;
-            random=random_init,
-            n_particles=params.n_particles,
+            params.n_particles,
+            positions,
+            diameters,
+            dimension;
+            mode="w",
+        )
+
+        # Initialize system
+        system = ParticleSystem(;
+            xpositions=positions,
+            unitcell=unitcell,
+            cutoff=cutoff,
+            output=EnergyAndForces(0.0, 0.0, similar(positions)),
+            output_name=:energy_and_forces,
+            parallel=false,
         )
     end
 
@@ -169,7 +128,7 @@ function initialize_state(
     reset_output!(system.energy_and_forces)
 
     # Initialize the array of images
-    images = [StaticArrays.@MVector zeros(Int32, dimension) for _ in eachindex(velocities)]
+    images = [zeros(StaticArrays.MVector{dimension,Int32}) for _ in eachindex(velocities)]
 
     state = SimulationState(system, diameters, rng, boxl, velocities, images, dimension, nf)
 
