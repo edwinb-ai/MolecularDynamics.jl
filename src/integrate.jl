@@ -1,3 +1,5 @@
+const sqthree = sqrt(3.0)
+
 function register_images_and_wrap!(x, image, boxl)
     # Compute number of box crossings for each dimension
     n_cross = floor.(x ./ boxl)
@@ -47,12 +49,22 @@ function ensemble_step!(
     return compute_temperature(velocities, state.nf)
 end
 
-function integrate_brownian!(positions, images, forces, dt, boxl, rng, dimension, ktemp)
-    for i in eachindex(positions, forces)
+@inline function sample_uniform!(vector, rng)
+    rand!(rng, vector)
+    @. vector = (2.0 * vector - 1.0) * sqthree
+
+    return nothing
+end
+
+function integrate_brownian!(
+    positions, images, forces, dt, boxl, rng, dimension, ktemp, sigma
+)
+    noise = zeros(MVector{dimension,Float64})
+
+    @inbounds for i in eachindex(positions, forces)
         f = forces[i]
         x = positions[i]
-        sigma = sqrt(2.0 * dt)
-        noise = @SVector randn(rng, dimension)
+        sample_uniform!(noise, rng)
         positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
         positions[i] = register_images_and_wrap!(positions[i], images[i], boxl)
     end

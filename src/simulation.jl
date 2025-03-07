@@ -177,6 +177,8 @@ function run_simulation!(
 
     # Compute the volume
     volume = state.boxl^dimension
+    # Compute the noise term of the diffusion
+    sigma = sqrt(2.0 * params.dt)
 
     # Variables to accumulate results
     virial = 0.0
@@ -205,6 +207,7 @@ function run_simulation!(
             state.rng,
             state.dimension,
             ktemp,
+            sigma,
         )
 
         # Accumulate values for thermodynamics

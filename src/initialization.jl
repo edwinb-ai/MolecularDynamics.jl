@@ -10,7 +10,6 @@ function initialize_simulation(
 )
     # Always leave a fixed cutoff
     cutoff = 1.5
-    positions = []
     boxl = 0.0
     system = nothing
 
@@ -36,10 +35,9 @@ function initialize_simulation(
         )
 
         @info "Reading done."
-    else
+    elseif random_init
         @info "Creating a new system with random positions and no overlaps."
         # Now we compute the effective size of the box
-        inter_distance = (1.0 / params.ρ)^(1 / dimension)
         boxl = (params.n_particles / params.ρ)^(1 / dimension)
         unitcell = boxl .* ones(dimension)
 
@@ -72,7 +70,7 @@ end
 
 function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
     # Initilize the random numbers of the velocities
-    velocities = [StaticArrays.@SVector zeros(dimension) for _ in 1:length(positions)]
+    velocities = [zeros(SVector{dimension,Float64}) for _ in 1:length(positions)]
     sum_v = StaticArrays.@MVector zeros(dimension)
     sum_v2 = 0.0
 
