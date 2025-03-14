@@ -1,7 +1,8 @@
 # MolecularDynamics.jl
 
-A simple molecular dynamics code that samples the canonical ensemble ($`NVT`$) and the
-microcanonical ensemble ($`NVE`$).
+A simple molecular dynamics code that samples the canonical ensemble ($`NVT`$), the
+microcanonical ensemble ($`NVE`$) and also perform Brownian dynamics simulations in the ($`NVT`$)
+ensemble.
 
 ### Example
 
@@ -63,6 +64,7 @@ main()
 
 - Uses the Bussi-Donadio-Parrinello thermostat to control temperature.
 - Integrates particles' positions and velocities using velocity Verlet.
+- The Brownian dynamics integrator is a simple Euler-Murayama first order integrator. This is essentially the approach of the Ermak-McCammon algorithm. The only difference is that a uniform distribution with the same moments as a normal distribution is sampled; this is done for efficiency of the code.
 - Can handle very large systems thanks to the cell implementation of [CellListMap.jl](https://github.com/m3g/CellListMap.jl)
 - For now it can compute energy and pressure, but also outputs the trajectory of the simulation for post-processing.
 - The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included.
