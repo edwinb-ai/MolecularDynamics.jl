@@ -38,8 +38,8 @@ end
 function write_to_file(
     filepath, step, boxl, n_particles, positions, diameters, dimension; mode="a"
 )
-    # Write to file
     open(filepath, mode) do io
+        # Write header information
         println(io, n_particles)
         Printf.@printf(
             io,
@@ -50,9 +50,20 @@ function write_to_file(
             dimension,
             step,
         )
-        for i in eachindex(diameters, positions)
-            particle = positions[i]
-            Printf.@printf(
+
+        # Select a specialized printing function based on dimension
+        write_particle = if dimension == 2
+            (io, i, diameters, particle) -> Printf.@printf(
+                io,
+                "%d %d %lf %lf %lf\n",
+                1,
+                i,
+                diameters[i] / 2.0,
+                particle[1],
+                particle[2]
+            )
+        elseif dimension == 3
+            (io, i, diameters, particle) -> Printf.@printf(
                 io,
                 "%d %d %lf %lf %lf %lf\n",
                 1,
@@ -60,8 +71,16 @@ function write_to_file(
                 diameters[i] / 2.0,
                 particle[1],
                 particle[2],
-                particle[3],
+                particle[3]
             )
+        else
+            error("Unsupported dimension: $dimension")
+        end
+
+        # Use the specialized function for each particle
+        for i in eachindex(diameters, positions)
+            particle = positions[i]
+            write_particle(io, i, diameters, particle)
         end
     end
 
@@ -69,36 +88,69 @@ function write_to_file(
 end
 
 function write_to_file_lammps(
-    filepath, step, boxl, n_particles, positions, images, diameters; mode="w"
+    filepath, step, boxl, n_particles, positions, images, diameters, dimension; mode="w"
 )
-    # Write to file
     open(filepath, mode) do io
+        # Write header information
         Printf.@printf(io, "ITEM: TIMESTEP\n%d\n", step)
         Printf.@printf(io, "ITEM: NUMBER OF ATOMS\n%d\n", n_particles)
-        Printf.@printf(
-            io,
-            "ITEM: BOX BOUNDS pp pp pp\n0.0 %lf\n0.0 %lf\n0.0 %lf\nITEM: ATOMS id type radius x y z xu yu zu\n",
-            boxl,
-            boxl,
-            boxl
-        )
+
+        # Set header and define a closure for per-particle printing
+        atom_print = if dimension == 2
+            # For 2D, only two box boundaries and atoms coordinates are used.
+            Printf.@printf(io, "ITEM: BOX BOUNDS pp pp\n0.0 %lf\n0.0 %lf\n0.0 0.1\n", boxl, boxl)
+            Printf.@printf(io, "ITEM: ATOMS id type radius x y xu yu\n")
+            (i, diameters, particle, image) -> begin
+                # Compute the unwrapped coordinates (2D)
+                unwrapped = particle .+ image .* boxl
+                Printf.@printf(
+                    io,
+                    "%d %d %lf %lf %lf %lf %lf\n",
+                    i,
+                    1,
+                    diameters[i] / 2.0,
+                    particle[1],
+                    particle[2],
+                    unwrapped[1],
+                    unwrapped[2]
+                )
+            end
+        elseif dimension == 3
+            # For 3D, all three dimensions are written.
+            Printf.@printf(
+                io,
+                "ITEM: BOX BOUNDS pp pp pp\n0.0 %lf\n0.0 %lf\n0.0 %lf\n",
+                boxl,
+                boxl,
+                boxl
+            )
+            Printf.@printf(io, "ITEM: ATOMS id type radius x y z xu yu zu\n")
+            (i, diameters, particle, image) -> begin
+                # Compute the unwrapped coordinates (3D)
+                unwrapped = particle .+ image .* boxl
+                Printf.@printf(
+                    io,
+                    "%d %d %lf %lf %lf %lf %lf %lf %lf\n",
+                    i,
+                    1,
+                    diameters[i] / 2.0,
+                    particle[1],
+                    particle[2],
+                    particle[3],
+                    unwrapped[1],
+                    unwrapped[2],
+                    unwrapped[3]
+                )
+            end
+        else
+            error("Unsupported dimension: $dimension")
+        end
+
+        # Loop over particles and use the specialized printing closure.
         for i in eachindex(diameters, positions, images)
             particle = positions[i]
             image = images[i]
-            unwrapped = particle + image * boxl
-            Printf.@printf(
-                io,
-                "%d %d %lf %lf %lf %lf %lf %lf %lf\n",
-                i,
-                1,
-                diameters[i] / 2.0,
-                particle[1],
-                particle[2],
-                particle[3],
-                unwrapped[1],
-                unwrapped[2],
-                unwrapped[3]
-            )
+            atom_print(i, diameters, particle, image)
         end
     end
 

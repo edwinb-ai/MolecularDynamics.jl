@@ -123,6 +123,9 @@ function initialize_state(
         system.positions[i] = @. system.positions[i] - (velocities[i] * params.dt)
     end
     # Zero out the arrays
+    for i in eachindex(system.energy_and_forces.forces)
+        system.energy_and_forces.forces[i] = zeros(StaticArrays.SVector{dimension})
+    end
     reset_output!(system.energy_and_forces)
 
     # Initialize the array of images
