@@ -118,7 +118,8 @@ function run_simulation!(
                 params.n_particles,
                 system.positions,
                 images,
-                diameters;
+                diameters,
+                dimension;
                 mode="a",
             )
         end
@@ -135,7 +136,8 @@ function run_simulation!(
                     params.n_particles,
                     system.positions,
                     images,
-                    diameters;
+                    diameters,
+                    dimension;
                     mode="w",
                 )
                 current_snapshot_index += 1

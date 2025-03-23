@@ -6,9 +6,10 @@ end
 function reset_output!(output::EnergyAndForces)
     output.energy = 0.0
     output.virial = 0.0
+    dim = size(output.forces[1])[1]
 
     for i in eachindex(output.forces)
-        output.forces[i] = StaticArrays.SVector(0.0, 0.0, 0.0)
+        output.forces[i] = zeros(StaticArrays.SVector{dim})
     end
 
     return output
@@ -28,7 +29,7 @@ function energy_and_forces!(
 ) where {T<:Potential}
     d = sqrt(d2)
     r = x - y
-    (uij, fij) = pot.potf(d)
+    (uij, fij) = evaluate(pot, d)
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij

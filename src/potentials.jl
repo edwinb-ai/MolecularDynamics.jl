@@ -8,19 +8,19 @@ end
 
 PseudoHS() = PseudoHS(pseudohs)
 
-function evaluate(pot::PseudoHS, r::Real; lambda=50.0)
-    return pot.potf(r; lambda=lambda)
+function evaluate(pot::PseudoHS, r::Real, sigma::Real=1.0; lambda=50.0)
+    return pot.potf(r, sigma; lambda=lambda)
 end
 
-FastPow.@fastpow function pseudohs(rij; lambda=50.0)
+FastPow.@fastpow function pseudohs(rij, sigma; lambda=50.0)
     uij = 0.0
     fij = 0.0
 
     if rij < b_param
-        uij = a_param * ((1.0 / rij)^lambda - (1.0 / rij)^(lambda - 1.0))
+        uij = a_param * ((sigma / rij)^lambda - (sigma / rij)^(lambda - 1.0))
         uij += 1.0
-        fij = lambda * (1.0 / rij)^(lambda + 1.0)
-        fij -= (lambda - 1.0) * (1.0 / rij)^lambda
+        fij = lambda * (sigma / rij)^(lambda + 1.0)
+        fij -= (lambda - 1.0) * (sigma / rij)^lambda
         fij *= a_param
     end
 
