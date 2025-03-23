@@ -22,6 +22,7 @@ include("thermostat.jl")
 include("integrate.jl")
 include("simulation.jl")
 
-export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!
+export Parameters,
+    NVT, NVE, Brownian, initialize_state, run_simulation!, Potential, PseudoHS
 
 end

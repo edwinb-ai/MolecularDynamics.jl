@@ -2,9 +2,17 @@
 const b_param = 1.0204081632653061
 const a_param = 134.5526623421209
 
+struct PseudoHS{F<:Function} <: Potential
+    potf::F
+end
+
+PseudoHS() = PseudoHS(pseudohs)
+
+function evaluate(pot::PseudoHS, r::Real; lambda=50.0)
+    return pot.potf(r; lambda=lambda)
+end
+
 FastPow.@fastpow function pseudohs(rij; lambda=50.0)
-    # b_param = lambda / (lambda - 1.0)
-    # a_param = lambda * b_param^(lambda - 1.0)
     uij = 0.0
     fij = 0.0
 

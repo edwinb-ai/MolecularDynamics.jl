@@ -1,7 +1,15 @@
+abstract type Potential end
+
+# Interface function that every potential should implement.
+function evaluate(pot::Potential, r::Real; kwargs...)
+    return error("evaluate not implemented for potential type: $(typeof(pot))")
+end
+
 struct Parameters
     ρ::Float64
     n_particles::Int
     dt::Float64
+    potential::Potential
 end
 
 struct SimulationState{T,U,V,W,M}

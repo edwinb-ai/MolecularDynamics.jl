@@ -23,10 +23,12 @@ function reducer(x::EnergyAndForces, y::EnergyAndForces)
 end
 
 "Function that updates energy and forces for each pair"
-function energy_and_forces!(x, y, i, j, d2, output::EnergyAndForces)
+function energy_and_forces!(
+    x, y, i, j, d2, output::EnergyAndForces, pot::T
+) where {T<:Potential}
     d = sqrt(d2)
     r = x - y
-    (uij, fij) = pseudohs(d)
+    (uij, fij) = pot.potf(d)
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij
