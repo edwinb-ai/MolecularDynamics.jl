@@ -1,6 +1,6 @@
 function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
     coordinates = unitcell[1] * rand(rng, StaticArrays.SVector{dimension,Float64}, npart)
-    pack_monoatomic!(coordinates, unitcell, tol; parallel=false, iprint=100)
+    pack_monoatomic!(coordinates, unitcell, tol; parallel=true, iprint=100)
 
     return coordinates
 end
@@ -25,7 +25,7 @@ function initialize_simulation(
             cutoff=cutoff,
             output=EnergyAndForces(0.0, 0.0, similar(positions)),
             output_name=:energy_and_forces,
-            parallel=false,
+            parallel=true,
         )
 
         # Save the initial configuration to a file
@@ -41,7 +41,7 @@ function initialize_simulation(
         boxl = (params.n_particles / params.ρ)^(1 / dimension)
         unitcell = boxl .* ones(dimension)
 
-        positions = initialize_random(unitcell, params.n_particles, rng, dimension; tol=1.1)
+        positions = initialize_random(unitcell, params.n_particles, rng, dimension)
         # Save the initial configuration to a file
         write_to_file(
             joinpath(pathname, "packed.xyz"),
@@ -61,7 +61,7 @@ function initialize_simulation(
             cutoff=cutoff,
             output=EnergyAndForces(0.0, 0.0, similar(positions)),
             output_name=:energy_and_forces,
-            parallel=false,
+            parallel=true,
         )
     end
 
