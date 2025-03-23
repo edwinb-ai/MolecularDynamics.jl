@@ -6,7 +6,6 @@ using LinearAlgebra: dot
 using DelimitedFiles: writedlm
 using Printf
 using FastPow
-using ThreadPools
 using Distributions: Gamma
 using CellListMap
 using CodecZstd
