@@ -157,7 +157,16 @@ function write_to_file_lammps(
     return nothing
 end
 
-function read_file(filepath)
+"""
+This function reads a specific format of the extended XYZ format, where
+the columns are
+
+type x y z r
+
+where type is the type of the particle, and not the id; "x", "y", and "z"
+are the particle coordinates; and "r" is the radius of the particle.
+"""
+function read_file(filepath; dimension=3)
     # Initialize the variables with a default value
     n_particles = 0
     box_l = 0.0
@@ -171,18 +180,32 @@ function read_file(filepath)
 
         # The second line we can skip for now
         line = split(readline(io), " ")
-        # The fifth position included the box size length information
-        box_l = parse(Float64, line[5])
+        # Regardless of the dimensionality, the first element in the list
+        # contains the relevant information of the box length
+        # We make a regular expression for the numerical part
+        re = r"Lattice=\"([\d\.]+)"
+        # Attempt to match the pattern in the string
+        m = match(re, line[1])
+        # Check if a match was found, then parse the captured group as a Float64
+        if m !== nothing
+            box_l = parse(Float64, m.captures[1])
+            println("Extracted number: ", box_l)
+        else
+            println("No match found.")
+        end
 
-        # Now read each line and gather the information
-        positions = [@SVector(zeros(2)) for _ in 1:n_particles]
+        # We need arrays for coordinates and radii of the particles
+        positions = SVector{dimension,Float64}[]
         radii = zeros(n_particles)
 
+        # Now read each line and gather the information
         for i in 1:n_particles
             line = split(readline(io), " ")
-            parsed_line = parse.(Float64, line)
-            positions[i] = SVector{2}(parsed_line[4:end])
-            radii[i] = parsed_line[3]
+            # We skip the first column, otherwise we cannot parse a string to float
+            parsed_line = parse.(Float64, line[2:end])
+            # Since we skipped, we start from 1 here
+            push!(positions, SVector{dimension,Float64}(parsed_line[1:dimension]))
+            radii[i] = parsed_line[end]
         end
     end
 

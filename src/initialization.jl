@@ -6,7 +6,7 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
 end
 
 function initialize_simulation(
-    params::Parameters, rng, dimension, diameters, pathname; file="", random_init=false
+    params::Parameters, rng, dimension, pathname; from_file="", random_init=false
 )
     # Always leave a fixed cutoff
     cutoff = 1.5
@@ -14,9 +14,10 @@ function initialize_simulation(
     system = nothing
 
     # We have to make sure that we only use either one, from a file or random initialization
-    if isfile(file) || !random_init
+    if isfile(from_file) || !random_init
         @info "Reading from file..."
-        (boxl, positions, diameters) = read_file(file)
+        (boxl, positions, diameters) = read_file(from_file; dimension=dimension)
+        # println(positions)
 
         # Initialize system
         unitcell = boxl .* ones(dimension)
@@ -28,13 +29,6 @@ function initialize_simulation(
             output_name=:energy_and_forces,
             parallel=true,
         )
-
-        # Save the initial configuration to a file
-        filepath = joinpath(pathname, "initial.xyz")
-        write_to_file(
-            filepath, 0, boxl, params.n_particles, positions, diameters, dimension
-        )
-
         @info "Reading done."
     # If either one is not satisfied, then we create a random initialization for now
     else
@@ -67,7 +61,7 @@ function initialize_simulation(
         )
     end
 
-    return system, boxl
+    return system, boxl, diameters
 end
 
 function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
@@ -101,8 +95,7 @@ end
 function initialize_state(
     params::Parameters,
     ktemp::Float64,
-    pathname::String,
-    diameters::Vector{Float64};
+    pathname::String;
     from_file::String="",
     dimension::Int=3,
     random_init=false,
@@ -113,8 +106,8 @@ function initialize_state(
     nf = dimension * (params.n_particles - 1.0)
 
     # Initialize the system
-    (system, boxl) = initialize_simulation(
-        params, rng, dimension, diameters, pathname; file=from_file, random_init=random_init
+    (system, boxl, diameters) = initialize_simulation(
+        params, rng, dimension, pathname; from_file=from_file, random_init=random_init
     )
     # Initialize the velocities of the system by having the correct temperature
     velocities = initialize_velocities(
