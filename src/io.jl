@@ -98,7 +98,9 @@ function write_to_file_lammps(
         # Set header and define a closure for per-particle printing
         atom_print = if dimension == 2
             # For 2D, only two box boundaries and atoms coordinates are used.
-            Printf.@printf(io, "ITEM: BOX BOUNDS pp pp\n0.0 %lf\n0.0 %lf\n0.0 0.1\n", boxl, boxl)
+            Printf.@printf(
+                io, "ITEM: BOX BOUNDS pp pp\n0.0 %lf\n0.0 %lf\n0.0 0.1\n", boxl, boxl
+            )
             Printf.@printf(io, "ITEM: ATOMS id type radius x y xu yu\n")
             (i, diameters, particle, image) -> begin
                 # Compute the unwrapped coordinates (2D)
@@ -204,7 +206,9 @@ function read_file(filepath; dimension=3)
             # We skip the first column, otherwise we cannot parse a string to float
             parsed_line = parse.(Float64, line[2:end])
             # Since we skipped, we start from 1 here
-            push!(positions, StaticArrays.SVector{dimension,Float64}(parsed_line[1:dimension]))
+            push!(
+                positions, StaticArrays.SVector{dimension,Float64}(parsed_line[1:dimension])
+            )
             radii[i] = parsed_line[end]
         end
     end
