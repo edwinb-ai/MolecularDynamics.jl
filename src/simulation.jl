@@ -83,7 +83,7 @@ function run_simulation!(
         reset_output!(system.energy_and_forces)
         CellListMap.map_pairwise!(
             (x, y, i, j, d2, output) ->
-                energy_and_forces!(x, y, i, j, d2, output, potential),
+                energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
             system,
         )
         integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
@@ -201,7 +201,7 @@ function run_simulation!(
         reset_output!(system.energy_and_forces)
         CellListMap.map_pairwise!(
             (x, y, i, j, d2, output) ->
-                energy_and_forces!(x, y, i, j, d2, output, potential),
+                energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
             system,
         )
         # Perform integration

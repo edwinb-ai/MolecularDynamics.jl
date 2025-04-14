@@ -8,7 +8,8 @@ end
 
 PseudoHS() = PseudoHS(pseudohs)
 
-function evaluate(pot::PseudoHS, r::Real, sigma::Real=1.0; lambda=50.0)
+function evaluate(pot::PseudoHS, r::Real; sigma1=1.0, sigma2=1.0, lambda=50.0)
+    sigma = (sigma1 + sigma2) / 2.0
     return pot.potf(r, sigma; lambda=lambda)
 end
 

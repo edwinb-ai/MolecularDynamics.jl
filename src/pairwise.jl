@@ -25,11 +25,11 @@ end
 
 "Function that updates energy and forces for each pair"
 function energy_and_forces!(
-    x, y, i, j, d2, output::EnergyAndForces, pot::T
+    x, y, i, j, d2, diameters::Vector{Float64}, output::EnergyAndForces, pot::T
 ) where {T<:Potential}
     d = sqrt(d2)
     r = x - y
-    (uij, fij) = evaluate(pot, d)
+    (uij, fij) = evaluate(pot, d; sigma1=diameters[i], sigma2=diameters[j])
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij
