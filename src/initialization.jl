@@ -6,10 +6,8 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
 end
 
 function initialize_simulation(
-    params::Parameters, rng, dimension, pathname; from_file="", random_init=false
+    params::Parameters, rng, dimension, pathname; cutoff=1.5, from_file="", random_init=false
 )
-    # Always leave a fixed cutoff
-    cutoff = 1.5
     boxl = 0.0
     system = nothing
 
@@ -17,7 +15,6 @@ function initialize_simulation(
     if isfile(from_file) || !random_init
         @info "Reading from file..."
         (boxl, positions, diameters) = read_file(from_file; dimension=dimension)
-        # println(positions)
 
         # Initialize system
         unitcell = boxl .* ones(dimension)
@@ -99,6 +96,7 @@ function initialize_state(
     from_file::String="",
     dimension::Int=3,
     random_init=false,
+    cutoff=1.5,
 )
     rng = Random.Xoshiro()
 
@@ -107,7 +105,7 @@ function initialize_state(
 
     # Initialize the system
     (system, boxl, diameters) = initialize_simulation(
-        params, rng, dimension, pathname; from_file=from_file, random_init=random_init
+        params, rng, dimension, pathname; cutoff=cutoff, from_file=from_file, random_init=random_init
     )
     # Initialize the velocities of the system by having the correct temperature
     velocities = initialize_velocities(
