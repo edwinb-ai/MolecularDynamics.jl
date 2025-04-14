@@ -6,7 +6,7 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
 end
 
 function initialize_simulation(
-    params::Parameters, rng, dimension, pathname; cutoff=1.5, from_file="", random_init=false
+    params::Parameters, rng, dimension, pathname; cutoff::Float64=1.5, from_file::String="", random_init::Bool=false
 )
     boxl = 0.0
     system = nothing
@@ -33,6 +33,10 @@ function initialize_simulation(
         # Now we compute the effective size of the box
         boxl = (params.n_particles / params.ρ)^(1 / dimension)
         unitcell = boxl .* ones(dimension)
+
+        # FIXME: We set an array of diameters here, but the user should be able to pass
+        # it as an argument
+        diameters = ones(params.n_particles)
 
         positions = initialize_random(unitcell, params.n_particles, rng, dimension)
         # Save the initial configuration to a file

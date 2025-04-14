@@ -195,7 +195,7 @@ function read_file(filepath; dimension=3)
         end
 
         # We need arrays for coordinates and radii of the particles
-        positions = SVector{dimension,Float64}[]
+        positions = StaticArrays.SVector{dimension,Float64}[]
         radii = zeros(n_particles)
 
         # Now read each line and gather the information
@@ -204,7 +204,7 @@ function read_file(filepath; dimension=3)
             # We skip the first column, otherwise we cannot parse a string to float
             parsed_line = parse.(Float64, line[2:end])
             # Since we skipped, we start from 1 here
-            push!(positions, SVector{dimension,Float64}(parsed_line[1:dimension]))
+            push!(positions, StaticArrays.SVector{dimension,Float64}(parsed_line[1:dimension]))
             radii[i] = parsed_line[end]
         end
     end
@@ -220,7 +220,7 @@ function compress_zstd(filepath)
     output_file = filepath * ".zst"
 
     open(filepath, "r") do infile
-        # Open the output file for writing, with gzip compression
+        # Open the output file for writing, with zstd compression
         open(ZstdCompressorStream, output_file, "w") do outfile
             # Write the contents of the input file to the compressed output file
             write(outfile, read(infile))
