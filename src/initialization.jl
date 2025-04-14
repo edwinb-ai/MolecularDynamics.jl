@@ -13,7 +13,8 @@ function initialize_simulation(
     boxl = 0.0
     system = nothing
 
-    if isfile(file)
+    # We have to make sure that we only use either one, from a file or random initialization
+    if isfile(file) || !random_init
         @info "Reading from file..."
         (boxl, positions, diameters) = read_file(file)
 
@@ -35,7 +36,8 @@ function initialize_simulation(
         )
 
         @info "Reading done."
-    elseif random_init
+    # If either one is not satisfied, then we create a random initialization for now
+    else
         @info "Creating a new system with random positions and no overlaps."
         # Now we compute the effective size of the box
         boxl = (params.n_particles / params.ρ)^(1 / dimension)
