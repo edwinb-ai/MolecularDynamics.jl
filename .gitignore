@@ -1,10 +1,6 @@
-# Personal files
-analysis/
-output
-DinamicaBrowniana.jl
 # Data files
 *.txt
-*.xyz
+*.xyz*
 
 # Julia files
 Manifest.toml
