@@ -4,6 +4,7 @@ using Random
 using StaticArrays
 using LinearAlgebra: dot
 using DelimitedFiles: writedlm
+using Statistics: mean
 using Printf
 using FastPow
 using Distributions: Gamma

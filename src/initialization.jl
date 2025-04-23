@@ -71,30 +71,19 @@ function initialize_simulation(
     return system, boxl, diameters
 end
 
-function initialize_velocities(positions, ktemp, nf, rng, n_particles, dimension)
-    # Initilize the random numbers of the velocities
-    velocities = [zeros(SVector{dimension,Float64}) for _ in 1:length(positions)]
-    sum_v = StaticArrays.@MVector zeros(dimension)
-    sum_v2 = 0.0
-
-    for i in eachindex(velocities)
-        velocities[i] = randn(rng, size(velocities[i]))
-        # Collect the center of mass, momentum = 1
-        sum_v .+= velocities[i]
-    end
-
-    sum_v ./= n_particles
-
-    for i in eachindex(velocities)
-        # Remove the center of mass momentum
-        velocities[i] = velocities[i] .- sum_v
-        sum_v2 += sum(abs2, velocities[i])
-    end
-
-    fs = sqrt(ktemp / (sum_v2 / nf))
-    for i in eachindex(velocities)
-        velocities[i] = velocities[i] .* fs
-    end
+function initialize_velocities(ktemp, rng, n_particles, dimension)
+    # 1) draw all velocities at once into a matrix
+    V = randn(rng, dimension, n_particles)         # size: (d × N)
+    # 2) remove COM motion
+    V .-= mean(V; dims=2)                          # subtract column-wise mean
+    # 3) compute current total squared speed
+    sum_v2 = sum(abs2, V)
+    # 4) compute scale factor
+    fs = sqrt(ktemp / (sum_v2 / ((n_particles - 1) * dimension)))
+    # 5) apply in place
+    V .*= fs
+    # 6) if you still need SVectors
+    velocities = [StaticArrays.MVector{dimension,Float64}(V[:, i]) for i in 1:n_particles]
 
     return velocities
 end
@@ -124,9 +113,7 @@ function initialize_state(
         random_init=random_init,
     )
     # Initialize the velocities of the system by having the correct temperature
-    velocities = initialize_velocities(
-        system.positions, ktemp, nf, rng, params.n_particles, dimension
-    )
+    velocities = initialize_velocities(ktemp, rng, params.n_particles, dimension)
     # Adjust the particles using the velocities
     for i in eachindex(system.positions)
         system.positions[i] = @. system.positions[i] - (velocities[i] * params.dt)
