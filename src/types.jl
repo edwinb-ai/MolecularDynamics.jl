@@ -12,7 +12,7 @@ struct Parameters
     potential::Potential
 end
 
-struct SimulationState{T,U,V,W,M}
+mutable struct SimulationState{T,U,V,W,M}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles

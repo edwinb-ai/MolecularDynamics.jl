@@ -27,6 +27,7 @@ include("minimize.jl")
 export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!, PseudoHS
 export LinearRamp, ExponentialRamp
 export minimize!
+export initial_temperature_for_velocities, initialize_velocities
 
 public Potential,evaluate
 

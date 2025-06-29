@@ -90,15 +90,13 @@ end
 
 function initialize_state(
     params::Parameters,
-    ktemp::Float64,
     pathname::String;
     from_file::String="",
     dimension::Int=3,
     random_init=false,
     cutoff=1.5,
+    rng::Random.AbstractRNG=Random.Xoshiro(),
 )
-    rng = Random.Xoshiro()
-
     # The degrees of freedom
     nf = dimension * (params.n_particles - 1.0)
 
@@ -112,12 +110,7 @@ function initialize_state(
         from_file=from_file,
         random_init=random_init,
     )
-    # Initialize the velocities of the system by having the correct temperature
-    velocities = initialize_velocities(ktemp, rng, params.n_particles, dimension)
-    # Adjust the particles using the velocities
-    for i in eachindex(system.positions)
-        system.positions[i] = @. system.positions[i] - (velocities[i] * params.dt)
-    end
+    
     # Zero out the arrays
     for i in eachindex(system.energy_and_forces.forces)
         system.energy_and_forces.forces[i] = zeros(StaticArrays.SVector{dimension})
@@ -125,9 +118,21 @@ function initialize_state(
     reset_output!(system.energy_and_forces)
 
     # Initialize the array of images
-    images = [zeros(StaticArrays.MVector{dimension,Int32}) for _ in eachindex(velocities)]
+    images = [
+        zeros(StaticArrays.MVector{dimension,Int32}) for _ in eachindex(system.xpositions)
+    ]
 
-    state = SimulationState(system, diameters, rng, boxl, velocities, images, dimension, nf)
+    # We set the velocities to zero for now, they will be initialized later
+    state = SimulationState(
+        system,
+        diameters,
+        rng,
+        boxl,
+        Vector{StaticArrays.SVector{dimension,Float64}}(),
+        images,
+        dimension,
+        nf,
+    )
 
     # Let's write the initial configuration to a file
     write_to_file(
