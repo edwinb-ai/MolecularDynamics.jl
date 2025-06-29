@@ -21,8 +21,10 @@ include("initialization.jl")
 include("thermostat.jl")
 include("integrate.jl")
 include("simulation.jl")
+include("temperature_ramps.jl")
 
 export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!, PseudoHS
+export LinearRamp, ExponentialRamp
 
 public Potential, evaluate
 

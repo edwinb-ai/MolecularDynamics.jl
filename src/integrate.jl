@@ -37,15 +37,16 @@ function integrate_second_half!(velocities, forces, dt)
     return nothing
 end
 
-function ensemble_step!(::NVE, velocities, params::Parameters, state::SimulationState)
+function ensemble_step!(::NVE, velocities, params::Parameters, state::SimulationState, step::Int)
     return compute_temperature(velocities, state.nf)
 end
 
 function ensemble_step!(
-    ensemble::NVT, velocities, params::Parameters, state::SimulationState
+    ensemble::NVT, velocities, params::Parameters, state::SimulationState, step::Int
 )
+    temperature = ensemble.ktemp(step)
     # Apply thermostat, e.g., Bussi thermostat
-    bussi!(velocities, ensemble.ktemp, state.nf, params.dt, ensemble.tau, state.rng)
+    bussi!(velocities, temperature, state.nf, params.dt, ensemble.tau, state.rng)
     return compute_temperature(velocities, state.nf)
 end
 

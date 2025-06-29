@@ -89,7 +89,7 @@ function run_simulation!(
         integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
 
         # Apply ensemble-specific logic
-        temperature = ensemble_step!(ensemble, velocities, params, state)
+        temperature = ensemble_step!(ensemble, velocities, params, state, step + 1)
 
         # Accumulate values for thermodynamics
         if mod(step, 10) == 0
@@ -260,7 +260,8 @@ function run_simulation!(
                     params.n_particles,
                     system.positions,
                     images,
-                    diameters;
+                    diameters,
+                    dimension;
                     mode="w",
                 )
                 current_snapshot_index += 1

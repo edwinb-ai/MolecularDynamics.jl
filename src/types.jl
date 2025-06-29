@@ -33,12 +33,15 @@ end
 
 abstract type Ensemble end
 
-struct NVT <: Ensemble
+struct NVT{T} <: Ensemble
     # Target temperature
-    ktemp::Float64
+    ktemp::T
     # Damping constant
     tau::Float64
 end
+
+# For backward compatibility, allow construction with a constant value:
+NVT(ktemp::Float64, tau::Float64) = NVT(step -> ktemp, tau)
 
 struct Brownian <: Ensemble
     # Target temperature
