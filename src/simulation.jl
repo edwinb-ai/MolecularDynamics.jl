@@ -274,3 +274,19 @@ function run_simulation!(
 
     return nothing
 end
+
+"""
+    minimize!(state::SimulationState, params::Parameters; method::Symbol=:FIRE, kwargs...)
+
+Perform energy minimization using the specified method (default: FIRE).
+All keyword arguments are forwarded to the underlying minimizer.
+"""
+function minimize!(
+    state::SimulationState, params::Parameters; method::Symbol=:FIRE, kwargs...
+)
+    if method == :FIRE
+        return fire_minimize!(state, params; kwargs...)
+    else
+        error("Unknown minimization method: $method")
+    end
+end

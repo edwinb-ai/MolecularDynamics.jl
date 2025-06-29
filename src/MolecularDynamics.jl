@@ -2,7 +2,7 @@ module MolecularDynamics
 
 using Random
 using StaticArrays
-using LinearAlgebra: dot
+using LinearAlgebra: dot, norm
 using DelimitedFiles: writedlm
 using Statistics: mean
 using Printf
@@ -22,10 +22,12 @@ include("thermostat.jl")
 include("integrate.jl")
 include("simulation.jl")
 include("temperature_ramps.jl")
+include("minimize.jl")
 
 export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!, PseudoHS
 export LinearRamp, ExponentialRamp
+export minimize!
 
-public Potential, evaluate
+public Potential,evaluate
 
 end
