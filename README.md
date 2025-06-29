@@ -189,7 +189,7 @@ main()
   - Benchmarks against LAMMPS and NIST results for the Lennard-Jones system are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
 - Initial configurations can be created in a random configuration. Random configurations are then packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
 - Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd` after the full trajectory has been written.
-    - It can also print the unwrapped coordinates of the particles, which are useful for the analysi of dynamical properties. However, the only format that support this is the LAMMPS format.
+    - It can also print the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties. However, the only format that support this is the LAMMPS format.
 - The configuration can now be minimized to an local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
 
 ## TODO
