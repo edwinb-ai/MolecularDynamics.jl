@@ -34,7 +34,12 @@ function main()
     # Define an array of diameters, a monodisperse system is one sigma
     diameters = ones(n_particles)
     # Here we initialize the state of the simulation
-    state = initialize_state(params, ktemp, pathname, diameters; random_init=true)
+    state = initialize_state(params, pathname, diameters; random_init=true)
+    # Velocities have to be explicitly set
+    init_temperature = initial_temperature_for_velocities(ktemp)
+    velocities = initialize_velocities(init_temperature, rng, params.n_particles, dimension)
+    state.velocities = velocities
+    
     # We run the simulation for 1_000_000 time steps, and we print data
     # every 100_000 time steps
     # The `compress=true` enables compression of the trajectory files using `zstd`
@@ -158,8 +163,12 @@ function main()
 
     # Here we initialize the state of the simulation from a file
     state = initialize_state(
-        params, ktemp, pathname; dimension=2, from_file="snapshot_step_10000000.xyz"
+        params, pathname; dimension=2, from_file="snapshot_step_10000000.xyz"
     )
+    # Velocities have to be explicitly set
+    init_temperature = initial_temperature_for_velocities(ktemp)
+    velocities = initialize_velocities(init_temperature, rng, params.n_particles, dimension)
+    state.velocities = velocities
     # We want to simulation standard NVE
     run_simulation!(state, params, NVE(), 100_000, 1_000, pathname; compress=true)
 
@@ -179,8 +188,10 @@ main()
 - The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included.
   - Benchmarks against LAMMPS and NIST results for the Lennard-Jones system are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
 - Initial configurations can be created in a random configuration. Random configurations are then packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
-- Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd`.
+- Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd` after the full trajectory has been written.
+    - It can also print the unwrapped coordinates of the particles, which are useful for the analysi of dynamical properties. However, the only format that support this is the LAMMPS format.
+- The configuration can now be minimized to an local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
 
 ## TODO
-- Polydispersity is now handled only if passed as a file. It should be possible for the user to pass any sort of structure as they please.
 - Also, the configuration of the system is always at random and packed, which helps to start a random simulation. However, the user should be able to set their configuration as they want, and the code do the integration of the equations of motion.
+    - I think that for this the code is generic enough that one should be able to pass an array of positions to the state. Right now the state does not accept this, but it would be useful if the user can pass a configuration of their choosing, and the engine will just integrate the equations of motion. This will also reduce the amount of dependencies that we need to care of.
