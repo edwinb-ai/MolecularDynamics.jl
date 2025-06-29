@@ -185,12 +185,12 @@ main()
 - The Brownian dynamics integrator is a simple Euler-Murayama first order integrator. This is essentially the approach of the Ermak-McCammon algorithm. The only difference is that a uniform distribution with the same moments as a normal distribution is sampled; this is done for efficiency of the code.
 - Can handle very large systems thanks to the cell implementation of [CellListMap.jl](https://github.com/m3g/CellListMap.jl)
 - For now it can compute energy and pressure, but also outputs the trajectory of the simulation for post-processing.
-- The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included.
-  - Benchmarks against LAMMPS and NIST results for the Lennard-Jones system are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
+- The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included. However, generic user-defined interaction potentials can now be defined with the new interface.
+  - Benchmarks fagainst LAMMPS and NIST results for the Lennard-Jones interaction potential are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
 - Initial configurations can be created in a random configuration. Random configurations are then packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
 - Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd` after the full trajectory has been written.
     - It can also print the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties. However, the only format that support this is the LAMMPS format.
-- The configuration can now be minimized to an local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
+- The configuration can now be minimized to a local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
 
 ## TODO
 - Also, the configuration of the system is always at random and packed, which helps to start a random simulation. However, the user should be able to set their configuration as they want, and the code do the integration of the equations of motion.
