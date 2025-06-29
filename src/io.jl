@@ -35,6 +35,18 @@ function generate_log_times(; max_iter::Int=10000, logn::Int=40, logbase::Float6
     return logs
 end
 
+"""
+This function writes a specific format of the extended XYZ format, where
+the columns are
+
+type id r x y z
+
+- "type" is the type of the particle, when there are many species this will have different integer values, "1", "2", and so on.
+
+- "id" is the identifier of the particle, which is usually the index in the list.
+- "x", "y", and "z" are the particle coordinates
+- "r" is the radius of the particle.
+"""
 function write_to_file(
     filepath, step, boxl, n_particles, positions, diameters, dimension; mode="a"
 )
@@ -163,7 +175,7 @@ end
 This function reads a specific format of the extended XYZ format, where
 the columns are
 
-type x y z r
+type id r x y z
 
 where type is the type of the particle, and not the id; "x", "y", and "z"
 are the particle coordinates; and "r" is the radius of the particle.
@@ -191,7 +203,7 @@ function read_file(filepath; dimension=3)
         # Check if a match was found, then parse the captured group as a Float64
         if m !== nothing
             box_l = parse(Float64, m.captures[1])
-            println("Extracted number: ", box_l)
+            println("Extracted size of box: ", box_l)
         else
             println("No match found.")
         end
@@ -203,13 +215,15 @@ function read_file(filepath; dimension=3)
         # Now read each line and gather the information
         for i in 1:n_particles
             line = split(readline(io), " ")
-            # We skip the first column, otherwise we cannot parse a string to float
-            parsed_line = parse.(Float64, line[2:end])
-            # Since we skipped, we start from 1 here
+            # Since we follow the same format as the write function
+            # we skip the first two elements, the type and id
+            parsed_line = parse.(Float64, line[3:end])
+            # From this parsed line, the first is the radius
+            radii[i] = parsed_line[1]
+            # The rest are the coordinates
             push!(
-                positions, StaticArrays.SVector{dimension,Float64}(parsed_line[1:dimension])
+                positions, StaticArrays.SVector{dimension,Float64}(parsed_line[2:end])
             )
-            radii[i] = parsed_line[end]
         end
     end
 
