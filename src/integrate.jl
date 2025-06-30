@@ -14,7 +14,7 @@ function register_images_and_wrap!(x, image, boxl)
 end
 
 function integrate_half!(positions, images, velocities, forces, dt, boxl)
-    for i in eachindex(positions, forces, velocities)
+    @threads for i in eachindex(positions, forces, velocities)
         f = forces[i]
         x = positions[i]
         v = velocities[i]
@@ -28,7 +28,7 @@ function integrate_half!(positions, images, velocities, forces, dt, boxl)
 end
 
 function integrate_second_half!(velocities, forces, dt)
-    for i in eachindex(velocities, forces)
+    @threads for i in eachindex(velocities, forces)
         f = forces[i]
         v = velocities[i]
         velocities[i] = @. v + (f * dt / 2.0)
