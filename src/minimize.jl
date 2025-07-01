@@ -31,6 +31,7 @@ Perform energy minimization using the Fast Inertial Relaxation Engine (FIRE) alg
 function fire_minimize!(
     state::SimulationState,
     params::Parameters;
+    dimension::Int=2,
     max_steps::Int=10000,
     tol::Float64=1e-6,
     dt_initial::Float64=0.01,
@@ -39,7 +40,6 @@ function fire_minimize!(
     f_inc::Float64=1.2,
     f_dec::Float64=0.2,
     Nmin::Int=5,
-    dimension::Int=2,
 )
     # Extract information from the state and parameters
     images = state.images
@@ -72,6 +72,12 @@ function fire_minimize!(
 
         F_norm = sqrt(sum(norm(f)^2 for f in forces))
 
+        if step % 100 == 0
+            print_fnorm = F_norm / sqrt(ndof)
+            print_energy = energy / N
+            @info "Step $(step): F_rms = $(print_fnorm), energy = $(print_energy)"
+        end
+
         if F_norm / sqrt(ndof) < tol
             convergence = true
             return energy, convergence
@@ -82,12 +88,6 @@ function fire_minimize!(
         end
 
         P = sum(dot(v[i], forces[i]) for i in eachindex(v))
-
-        if step % 100 == 0
-            print_fnorm = F_norm / sqrt(ndof)
-            print_energy = energy / N
-            @info "Step $(step): F_rms = $(print_fnorm), energy = $(print_energy)"
-        end
 
         v_norm = sqrt(sum(norm(vi)^2 for vi in v))
         f_norm = sqrt(sum(norm(f)^2 for f in forces))

@@ -33,9 +33,9 @@ function run_simulation!(
     ensemble::Ensemble,
     total_steps::Int,
     frequency::Int,
-    pathname;
-    traj_name="trajectory.xyz",
-    thermo_name="thermo.txt",
+    pathname::String;
+    traj_name::String="trajectory.xyz",
+    thermo_name::String="thermo.txt",
     compress::Bool=false,
     log_times::Bool=false,
 )
@@ -158,9 +158,9 @@ function run_simulation!(
     ensemble::Brownian,
     total_steps::Int,
     frequency::Int,
-    pathname;
-    traj_name="trajectory.xyz",
-    thermo_name="thermo.txt",
+    pathname::String;
+    traj_name::String="trajectory.xyz",
+    thermo_name::String="thermo.txt",
     compress::Bool=false,
     log_times::Bool=false,
 )
@@ -276,17 +276,63 @@ function run_simulation!(
 end
 
 """
-    minimize!(state::SimulationState, params::Parameters; method::Symbol=:FIRE, kwargs...)
+    minimize!(
+        state::SimulationState,
+        params::Parameters,
+        pathname::String,
+        dimension::Int;
+        method::Symbol = :FIRE,
+        save_config::String = "minimized.xyz",
+        kwargs...
+    )
 
-Perform energy minimization using the specified method (default: FIRE).
-All keyword arguments are forwarded to the underlying minimizer.
+Perform energy minimization using the specified `method` (default: `:FIRE`).  
+All additional keyword arguments are forwarded to the underlying minimizer.
+
+After minimization, saves the final configuration to a file named `save_config` (default: "minimized.xyz") in the directory given by `pathname`.
+
+# Arguments
+- `state::SimulationState`: The current simulation state to be minimized.
+- `params::Parameters`: Simulation parameters.
+- `pathname::String`: Directory path where the minimized configuration file will be saved.
+- `dimension::Int`: Dimensionality of the system (e.g., 2 or 3).
+- `method::Symbol`: (Keyword) Minimization method to use. Currently supports `:FIRE` only which implements the standard fast inertial relaxation engine (FIRE) algorithm.
+- `save_config::String`: (Keyword) Name of the file to save the minimized configuration.
+- `kwargs...`: Additional keyword arguments forwarded to the minimizer.
+
+# Notes
+- The configuration is saved using `write_to_file` with the filename constructed from `joinpath(pathname, save_config)`.
+- If the specified minimization method is not supported, an error is thrown.
 """
 function minimize!(
-    state::SimulationState, params::Parameters; method::Symbol=:FIRE, kwargs...
+    state::SimulationState,
+    params::Parameters,
+    pathname::String,
+    dimension::Int;
+    method::Symbol=:FIRE,
+    save_config::String="minimized.xyz",
+    kwargs...,
 )
     if method == :FIRE
-        return fire_minimize!(state, params; kwargs...)
+        fire_minimize!(state, params; dimension=dimension, kwargs...)
     else
         error("Unknown minimization method: $method")
     end
+
+    # Unpack some variables and save the final configuration to file
+    boxl = state.boxl
+    positions = state.system.xpositions
+    diameters = state.diameters
+    n_particles = params.n_particles
+    write_to_file(
+        joinpath(pathname, save_config),
+        0,
+        boxl,
+        n_particles,
+        positions,
+        diameters,
+        dimension,
+    )
+
+    return nothing
 end
