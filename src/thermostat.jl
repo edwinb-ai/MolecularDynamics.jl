@@ -22,7 +22,7 @@ function bussi!(velocities, ktemp, nf, dt, τ, rng)
 
     # Compute kinetic energy
     kinetic_energy = 0.0
-    for i in eachindex(velocities)
+    @inbounds for i in eachindex(velocities)
         kinetic_energy += sum(abs2, velocities[i])
     end
     kinetic_energy /= 2.0
@@ -40,7 +40,7 @@ function bussi!(velocities, ktemp, nf, dt, τ, rng)
     scale = sqrt(term_1 + term_2 + term_3)
 
     # Apply velocity rescaling
-    for i in eachindex(velocities)
+    @inbounds for i in eachindex(velocities)
         velocities[i] = velocities[i] * scale
     end
 
@@ -50,7 +50,7 @@ end
 function compute_kinetic(velocities)
     kinetic_energy = 0.0
 
-    for i in eachindex(velocities)
+    @inbounds for i in eachindex(velocities)
         kinetic_energy += sum(abs2, velocities[i])
     end
 
