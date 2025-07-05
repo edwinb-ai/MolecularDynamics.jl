@@ -12,7 +12,7 @@ struct Parameters
     potential::Potential
 end
 
-mutable struct SimulationState{T,U,V,W,M}
+mutable struct SimulationState{T,U,V,W,M,N}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
@@ -20,7 +20,7 @@ mutable struct SimulationState{T,U,V,W,M}
     # The RNG
     rng::V
     # The size of the simulation box
-    boxl::Float64
+    boxl::N
     # The container for the velocities
     velocities::W
     # The images for the particles

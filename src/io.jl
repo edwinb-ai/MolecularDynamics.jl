@@ -36,34 +36,50 @@ function generate_log_times(; max_iter::Int=10000, logn::Int=40, logbase::Float6
 end
 
 """
-This function writes a specific format of the extended XYZ format, where
-the columns are
+    write_to_file(
+        filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a"
+    )
 
-type id r x y z
-
-- "type" is the type of the particle, when there are many species this will have different integer values, "1", "2", and so on.
-
-- "id" is the identifier of the particle, which is usually the index in the list.
-- "x", "y", and "z" are the particle coordinates
-- "r" is the radius of the particle.
+Write an extended XYZ file with a general unitcell (can be scalar, vector, or matrix).
+The Lattice attribute is always 9 numbers, as required for OVITO and similar tools.
+For 2D, a 3x3 matrix is constructed: the input fills the upper-left, rest zeros except for unit z-thickness.
 """
 function write_to_file(
-    filepath, step, boxl, n_particles, positions, diameters, dimension; mode="a"
+    filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a"
 )
     open(filepath, mode) do io
-        # Write header information
         println(io, n_particles)
+        # Prepare a 3×3 box matrix in column-major order, as OVITO expects
+        boxmat = zeros(3, 3)
+        if isa(unitcell, Number)
+            boxmat[1, 1] = unitcell
+            boxmat[2, 2] = unitcell
+            boxmat[3, 3] = unitcell
+        elseif isa(unitcell, AbstractVector)
+            for i in eachindex(unitcell)
+                boxmat[i, i] = unitcell[i]
+            end
+            if dimension == 2
+                boxmat[3, 3] = 1.0 # artificial thickness for 2D
+            end
+        elseif isa(unitcell, AbstractMatrix)
+            boxmat[1:size(unitcell, 1), 1:size(unitcell, 2)] .= unitcell
+            if dimension == 2
+                boxmat[3, 3] = 1.0
+            end
+        else
+            error("Unsupported unitcell type: $(typeof(unitcell))")
+        end
+        # Flatten in column-major order (Julia default)
+        lattice = vec(boxmat)
+        # Write Lattice header (always 9 numbers)
         Printf.@printf(
             io,
-            "Lattice=\"%lf 0.0 0.0 0.0 %lf 0.0 0.0 0.0 %lf\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
-            boxl,
-            boxl,
-            boxl,
+            "Lattice=\"%.5f %.5f %.5f %.5f %.5f %.5f %.5f %.5f %.5f\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
+            lattice...,
             dimension,
-            step,
+            step
         )
-
-        # Select a specialized printing function based on dimension
         write_particle = if dimension == 2
             (io, i, diameters, particle) -> Printf.@printf(
                 io,
@@ -89,7 +105,6 @@ function write_to_file(
             error("Unsupported dimension: $dimension")
         end
 
-        # Use the specialized function for each particle
         for i in eachindex(diameters, positions)
             particle = positions[i]
             write_particle(io, i, diameters, particle)
@@ -172,65 +187,38 @@ function write_to_file_lammps(
 end
 
 """
-This function reads a specific format of the extended XYZ format, where
-the columns are
+    read_file(filepath; dimension=3)
 
-type id r x y z
-
-where type is the type of the particle, and not the id; "x", "y", and "z"
-are the particle coordinates; and "r" is the radius of the particle.
+Reads an extended XYZ file and returns (unitcell, positions, diameters).
+Supports general unitcell (matrix), not just cubic box.
 """
 function read_file(filepath; dimension=3)
-    # Initialize the variables with a default value
-    n_particles = 0
-    box_l = 0.0
-    positions = []
-    radii = []
-
     open(filepath, "r") do io
-        # First line is the number of particles
-        line = readline(io)
-        n_particles = parse(Int64, line)
-
-        # The second line we can skip for now
-        line = split(readline(io), " ")
-        # Regardless of the dimensionality, the first element in the list
-        # contains the relevant information of the box length
-        # We make a regular expression for the numerical part
-        re = r"Lattice=\"([\d\.]+)"
-        # Attempt to match the pattern in the string
-        m = match(re, line[1])
-        # Check if a match was found, then parse the captured group as a Float64
-        if m !== nothing
-            box_l = parse(Float64, m.captures[1])
-            println("Extracted size of box: ", box_l)
+        n_particles = parse(Int, readline(io))
+        header = readline(io)
+        # Extract lattice
+        lattice_str = match(r"Lattice=\"([^\"]+)\"", header).captures[1]
+        lattice_vals = parse.(Float64, split(lattice_str))
+        if dimension == 2
+            unitcell = [lattice_vals[1] 0.0; 0.0 lattice_vals[4]]
+        elseif dimension == 3
+            unitcell = reshape(lattice_vals, 3, 3)
         else
-            println("No match found.")
+            error("Unsupported dimension: $dimension")
         end
-
-        # We need arrays for coordinates and radii of the particles
-        positions = StaticArrays.SVector{dimension,Float64}[]
-        radii = zeros(n_particles)
-
-        # Now read each line and gather the information
-        for i in 1:n_particles
-            line = split(readline(io), " ")
-            # Since we follow the same format as the write function
-            # we skip the first two elements, the type and id
-            parsed_line = parse.(Float64, line[3:end])
-            # From this parsed line, the first is the radius
-            radii[i] = parsed_line[1]
-            # The rest are the coordinates
-            push!(
-                positions, StaticArrays.SVector{dimension,Float64}(parsed_line[2:end])
-            )
+        # Read particles
+        positions = []
+        diameters = []
+        for _ in 1:n_particles
+            line = readline(io)
+            fields = split(line)
+            r = parse(Float64, fields[3])
+            pos = map(x -> parse(Float64, x), fields[4:end])
+            push!(diameters, 2.0 * r)
+            push!(positions, pos)
         end
+        return unitcell, positions, diameters
     end
-
-    # The information read are the radii, so convert to diameters
-    diameters = radii .* 2.0
-
-    return box_l, positions, diameters
 end
 
 function compress_zstd(filepath)
