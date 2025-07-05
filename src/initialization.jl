@@ -44,7 +44,6 @@ function initialize_simulation(
 
     if positions !== nothing && diameters !== nothing
         @info "Initializing from provided positions/diameters..."
-        N = length(diameters)
         if isnothing(box_size)
             # Default box size: bounding box of positions plus a margin
             minpos = minimum(reduce(hcat, positions); dims=2)
@@ -112,6 +111,23 @@ function initialize_simulation(
     end
 
     return system, boxl, diameters
+end
+
+function initialize_velocities(ktemp, rng, n_particles, dimension)
+    # 1) draw all velocities at once into a matrix
+    V = randn(rng, dimension, n_particles)         # size: (d × N)
+    # 2) remove COM motion
+    V .-= mean(V; dims=2)                          # subtract column-wise mean
+    # 3) compute current total squared speed
+    sum_v2 = sum(abs2, V)
+    # 4) compute scale factor
+    fs = sqrt(ktemp / (sum_v2 / ((n_particles - 1) * dimension)))
+    # 5) apply in place
+    V .*= fs
+    # 6) if you still need SVectors
+    velocities = [StaticArrays.MVector{dimension,Float64}(V[:, i]) for i in 1:n_particles]
+
+    return velocities
 end
 
 """

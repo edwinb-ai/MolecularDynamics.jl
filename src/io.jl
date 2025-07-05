@@ -114,24 +114,76 @@ function write_to_file(
     return nothing
 end
 
+"""
+    write_to_file_lammps(
+        filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
+    )
+
+Write a LAMMPS trajectory file supporting generic simulation boxes (orthogonal or triclinic).
+- `unitcell` can be a scalar, vector, or matrix describing the box.
+"""
 function write_to_file_lammps(
-    filepath, step, boxl, n_particles, positions, images, diameters, dimension; mode="w"
+    filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
 )
     open(filepath, mode) do io
-        # Write header information
         Printf.@printf(io, "ITEM: TIMESTEP\n%d\n", step)
         Printf.@printf(io, "ITEM: NUMBER OF ATOMS\n%d\n", n_particles)
 
-        # Set header and define a closure for per-particle printing
-        atom_print = if dimension == 2
-            # For 2D, only two box boundaries and atoms coordinates are used.
-            Printf.@printf(
-                io, "ITEM: BOX BOUNDS pp pp\n0.0 %lf\n0.0 %lf\n0.0 0.1\n", boxl, boxl
-            )
+        # Convert unitcell to a 3x3 matrix
+        boxmat = if isa(unitcell, Number)
+            unitcell * I(3)
+        elseif isa(unitcell, AbstractVector)
+            Diagonal(append!(collect(unitcell), fill(1.0, 3 - length(unitcell))))
+        elseif isa(unitcell, AbstractMatrix)
+            m = zeros(3, 3)
+            m[1:size(unitcell, 1), 1:size(unitcell, 2)] .= unitcell
+            m
+        else
+            error("Unsupported unitcell type: $(typeof(unitcell))")
+        end
+
+        # Extract box bounds and tilt factors for LAMMPS (see LAMMPS documentation)
+        if dimension == 2
+            lx = norm(boxmat[:, 1])
+            ly = norm(boxmat[:, 2])
+            xlo, xhi = 0.0, lx
+            ylo, yhi = 0.0, ly
+            zlo, zhi = 0.0, 1.0
+            xy = boxmat[1, 2]
+            # 2D: Only use x/y/xy bounds, z is dummy
+            Printf.@printf(io, "ITEM: BOX BOUNDS xy pp pp\n")
+            Printf.@printf(io, "%lf %lf %lf\n", xlo, xhi, xy)
+            Printf.@printf(io, "%lf %lf 0.0\n", ylo, yhi)
+            Printf.@printf(io, "%lf %lf 0.0\n", zlo, zhi)
             Printf.@printf(io, "ITEM: ATOMS id type radius x y xu yu\n")
-            (i, diameters, particle, image) -> begin
-                # Compute the unwrapped coordinates (2D)
-                unwrapped = particle .+ image .* boxl
+        elseif dimension == 3
+            # LAMMPS expects box bounds and tilt factors: xlo xhi, ylo yhi, zlo zhi, xy, xz, yz
+            xlo, xhi = 0.0, boxmat[1, 1]
+            ylo, yhi = 0.0, boxmat[2, 2]
+            zlo, zhi = 0.0, boxmat[3, 3]
+            xy = boxmat[1, 2]
+            xz = boxmat[1, 3]
+            yz = boxmat[2, 3]
+            Printf.@printf(io, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n")
+            Printf.@printf(io, "%lf %lf %lf\n", xlo, xhi, xy)
+            Printf.@printf(io, "%lf %lf %lf\n", ylo, yhi, yz)
+            Printf.@printf(io, "%lf %lf %lf\n", zlo, zhi, xz)
+            Printf.@printf(io, "ITEM: ATOMS id type radius x y z xu yu zu\n")
+        else
+            error("Unsupported dimension: $dimension")
+        end
+
+        # Helper to unwrap position (x + n * boxmat)
+        function unwrapped(p, img)
+            # for generic box, unwrapped = p + boxmat * img
+            return p + boxmat * img
+        end
+
+        for i in eachindex(diameters, positions, images)
+            particle = positions[i]
+            image = images[i]
+            uw = unwrapped(particle, image)
+            if dimension == 2
                 Printf.@printf(
                     io,
                     "%d %d %lf %lf %lf %lf %lf\n",
@@ -140,23 +192,10 @@ function write_to_file_lammps(
                     diameters[i] / 2.0,
                     particle[1],
                     particle[2],
-                    unwrapped[1],
-                    unwrapped[2]
+                    uw[1],
+                    uw[2]
                 )
-            end
-        elseif dimension == 3
-            # For 3D, all three dimensions are written.
-            Printf.@printf(
-                io,
-                "ITEM: BOX BOUNDS pp pp pp\n0.0 %lf\n0.0 %lf\n0.0 %lf\n",
-                boxl,
-                boxl,
-                boxl
-            )
-            Printf.@printf(io, "ITEM: ATOMS id type radius x y z xu yu zu\n")
-            (i, diameters, particle, image) -> begin
-                # Compute the unwrapped coordinates (3D)
-                unwrapped = particle .+ image .* boxl
+            elseif dimension == 3
                 Printf.@printf(
                     io,
                     "%d %d %lf %lf %lf %lf %lf %lf %lf\n",
@@ -166,23 +205,13 @@ function write_to_file_lammps(
                     particle[1],
                     particle[2],
                     particle[3],
-                    unwrapped[1],
-                    unwrapped[2],
-                    unwrapped[3]
+                    uw[1],
+                    uw[2],
+                    uw[3]
                 )
             end
-        else
-            error("Unsupported dimension: $dimension")
-        end
-
-        # Loop over particles and use the specialized printing closure.
-        for i in eachindex(diameters, positions, images)
-            particle = positions[i]
-            image = images[i]
-            atom_print(i, diameters, particle, image)
         end
     end
-
     return nothing
 end
 

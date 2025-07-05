@@ -1,3 +1,23 @@
+"""
+    compute_box_volume(boxl, dimension)
+
+Compute the simulation box volume for cubic, orthorhombic, or general (triclinic) unitcell.
+- `boxl`: number, vector, or matrix representing the box vectors.
+- `dimension`: 2 or 3.
+"""
+function compute_box_volume(boxl, dimension)
+    if isa(boxl, Number)
+        return boxl^dimension
+    elseif isa(boxl, AbstractVector)
+        return prod(boxl[1:dimension])
+    elseif isa(boxl, AbstractMatrix)
+        # Only use the upper-left d×d block (for 2D, 2×2; for 3D, 3×3)
+        return abs(det(boxl[1:dimension, 1:dimension]))
+    else
+        error("Unsupported box type: $(typeof(boxl))")
+    end
+end
+
 function finalize_simulation!(
     trajectory_file::String,
     pathname::String,
@@ -56,7 +76,7 @@ function run_simulation!(
     potential = params.potential
 
     # Compute the volume
-    volume = state.boxl^dimension
+    volume = compute_box_volume(state.boxl, dimension)
 
     # Variables to accumulate results
     virial = 0.0

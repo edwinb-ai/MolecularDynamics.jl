@@ -1,14 +1,43 @@
 const sqthree = sqrt(3.0)
 
-function register_images_and_wrap!(x, image, boxl)
-    # Compute number of box crossings for each dimension
-    n_cross = floor.(x ./ boxl)
+"""
+    register_images_and_wrap!(x, image, unitcell)
 
-    # Update the image vector
+Generic periodic wrap for any simulation box shape (cubic, orthorhombic, or triclinic).
+
+- `x`: position vector (SVector, Vector)
+- `image`: image vector (MVector, Vector{Int}) to be updated in-place
+- `unitcell`: simulation box (scalar, vector, or 2D matrix of box vectors)
+
+Returns:
+    wrapped_x: wrapped Cartesian position (same type as x)
+"""
+function register_images_and_wrap!(x, image, unitcell)
+    # Convert box to matrix form
+    boxmat = if isa(unitcell, Number)
+        unitcell * I(length(x))
+    elseif isa(unitcell, AbstractVector)
+        Diagonal(unitcell)
+    elseif isa(unitcell, AbstractMatrix)
+        unitcell
+    else
+        throw(ArgumentError("Unsupported unitcell type"))
+    end
+
+    # Compute fractional coordinates: x_frac = boxmat \ x
+    x_frac = boxmat \ x
+
+    # Number of box crossings (integer part)
+    n_cross = floor.(x_frac)
+
+    # Update images
     @. image += Int(n_cross)
 
-    # Wrap the position
-    wrapped_x = @. x - boxl * n_cross
+    # Wrap: back to [0,1) in each direction
+    x_frac_wrapped = x_frac .- n_cross
+
+    # Convert back to Cartesian
+    wrapped_x = boxmat * x_frac_wrapped
 
     return wrapped_x
 end
@@ -37,7 +66,9 @@ function integrate_second_half!(velocities, forces, dt)
     return nothing
 end
 
-function ensemble_step!(::NVE, velocities, params::Parameters, state::SimulationState, step::Int)
+function ensemble_step!(
+    ::NVE, velocities, params::Parameters, state::SimulationState, step::Int
+)
     return compute_temperature(velocities, state.nf)
 end
 
