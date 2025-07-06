@@ -74,10 +74,14 @@ function run_simulation!(
     images = state.images
     dimension = state.dimension
     potential = params.potential
-    box_solver = state.solver
+
+    # We need to invert the simulation box for correctly computing
+    # the wrap around
+    unitcell = state.unitcell
+    unitcell_inv = inv(unitcell)
 
     # Compute the volume
-    volume = compute_box_volume(state.boxl, dimension)
+    volume = compute_box_volume(unitcell, dimension)
 
     # Variables to accumulate results
     virial = 0.0
@@ -99,7 +103,8 @@ function run_simulation!(
             velocities,
             system.energy_and_forces.forces,
             params.dt,
-            box_solver,
+            unitcell,
+            unitcell_inv,
         )
         reset_output!(system.energy_and_forces)
         CellListMap.map_pairwise!(
@@ -135,7 +140,7 @@ function run_simulation!(
             write_to_file_lammps(
                 trajectory_file,
                 step,
-                state.boxl,
+                unitcell,
                 params.n_particles,
                 system.positions,
                 images,
@@ -153,7 +158,7 @@ function run_simulation!(
                 write_to_file_lammps(
                     filename,
                     snap_step,
-                    state.boxl,
+                    unitcell,
                     params.n_particles,
                     system.positions,
                     images,
@@ -202,9 +207,14 @@ function run_simulation!(
     potential = params.potential
 
     # Compute the volume
-    volume = state.boxl^dimension
+    volume = compute_box_volume(state.boxl, dimension)
     # Compute the noise term of the diffusion
     sigma = sqrt(2.0 * params.dt)
+
+    # We need to invert the simulation box for correctly computing
+    # the wrap around
+    unitcell = state.unitcell
+    unitcell_inv = inv(unitcell)
 
     # Variables to accumulate results
     virial = 0.0
@@ -231,7 +241,8 @@ function run_simulation!(
             images,
             system.energy_and_forces.forces,
             params.dt,
-            state.boxl,
+            unitcell,
+            unitcell_inv,
             state.rng,
             state.dimension,
             ktemp,

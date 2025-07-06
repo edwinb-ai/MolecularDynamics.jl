@@ -1,23 +1,32 @@
 const sqthree = sqrt(3.0)
 
-function integrate_half!(positions, images, velocities, forces, dt, solver)
+"""
+    integrate_half!(positions, images, velocities, forces, dt, unitcell, unitcell_inv)
+
+Velocity Verlet first half-step using generic unitcell.
+"""
+function integrate_half!(positions, images, velocities, forces, dt, unitcell, unitcell_inv)
     @threads for i in eachindex(positions, forces, velocities)
         f = forces[i]
         x = positions[i]
         v = velocities[i]
-        # ! Important: There should be a mass in the force term
         velocities[i] = @. v + (f * dt / 2.0)
         positions[i] = @. x + (velocities[i] * dt)
-        positions[i] = register_images_and_wrap!(positions[i], images[i], solver)
+        positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
     end
 
     return nothing
 end
 
+"""
+    integrate_second_half!(velocities, forces, dt)
+
+Velocity Verlet second half-step.
+"""
 function integrate_second_half!(velocities, forces, dt)
     @threads for i in eachindex(velocities, forces)
-        f = forces[i]
         v = velocities[i]
+        f = forces[i]
         velocities[i] = @. v + (f * dt / 2.0)
     end
 
@@ -42,12 +51,16 @@ end
 @inline function sample_uniform!(vector, rng)
     rand!(rng, vector)
     @. vector = (2.0 * vector - 1.0) * sqthree
-
     return nothing
 end
 
+"""
+    integrate_brownian!(positions, images, forces, dt, unitcell, unitcell_inv, rng, dimension, ktemp, sigma)
+
+Brownian dynamics integrator using generic unitcell.
+"""
 function integrate_brownian!(
-    positions, images, forces, dt, boxl, rng, dimension, ktemp, sigma
+    positions, images, forces, dt, unitcell, unitcell_inv, rng, dimension, ktemp, sigma
 )
     noise = zeros(MVector{dimension,Float64})
 
@@ -56,7 +69,7 @@ function integrate_brownian!(
         x = positions[i]
         sample_uniform!(noise, rng)
         positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
-        positions[i] = register_images_and_wrap!(positions[i], images[i], boxl)
+        positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
     end
 
     return nothing
