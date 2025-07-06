@@ -20,7 +20,7 @@ function finalize_simulation!(
     write_to_file(
         final_configuration,
         total_steps,
-        state.boxl,
+        state.unitcell,
         params.n_particles,
         state.system.positions,
         state.diameters,
