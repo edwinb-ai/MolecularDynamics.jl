@@ -74,12 +74,10 @@ function run_simulation!(
     images = state.images
     dimension = state.dimension
     potential = params.potential
+    box_solver = state.solver
 
     # Compute the volume
     volume = compute_box_volume(state.boxl, dimension)
-
-    # We also need a factorization of the simulation box
-    decomposition_box = WrappedBoxSolver(state.boxl)
 
     # Variables to accumulate results
     virial = 0.0
@@ -101,7 +99,7 @@ function run_simulation!(
             velocities,
             system.energy_and_forces.forces,
             params.dt,
-            decomposition_box,
+            box_solver,
         )
         reset_output!(system.energy_and_forces)
         CellListMap.map_pairwise!(

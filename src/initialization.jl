@@ -39,7 +39,6 @@ function initialize_simulation(
     box_type::Union{String,Symbol}="cubic",
     box_size=nothing,
 )
-    boxl = 0.0
     system = nothing
 
     if positions !== nothing && diameters !== nothing
@@ -64,7 +63,7 @@ function initialize_simulation(
             output_name=:energy_and_forces,
             parallel=true,
         )
-        boxl = box_size
+    # TODO: This needs to be refactored to include the new box type and box size options.
     elseif isfile(from_file) || !random_init
         @info "Reading from file..."
         (boxl, positions, diameters) = read_file(from_file; dimension=dimension)
@@ -93,7 +92,7 @@ function initialize_simulation(
         write_to_file(
             joinpath(pathname, "packed.xyz"),
             0,
-            boxl,
+            unitcell,
             params.n_particles,
             positions,
             diameters,
@@ -110,7 +109,7 @@ function initialize_simulation(
         )
     end
 
-    return system, boxl, diameters
+    return system, unitcell, diameters
 end
 
 function initialize_velocities(ktemp, rng, n_particles, dimension)
@@ -182,6 +181,13 @@ function initialize_state(
         box_size=box_size,
     )
 
+    # Defint the box solver based on the box type
+    solver = if random_init
+         OrthoBoxSolver(box_size, dimension)
+    else
+        WrappedBoxSolver(box_size)
+    end
+
     # Zero out the arrays
     for i in eachindex(system.energy_and_forces.forces)
         system.energy_and_forces.forces[i] = zeros(StaticArrays.SVector{dimension})
@@ -199,6 +205,7 @@ function initialize_state(
         diameters,
         rng,
         boxl,
+        solver,
         Vector{StaticArrays.SVector{dimension,Float64}}(),
         images,
         dimension,
