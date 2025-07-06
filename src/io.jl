@@ -36,81 +36,36 @@ function generate_log_times(; max_iter::Int=10000, logn::Int=40, logbase::Float6
 end
 
 """
-    write_to_file(
-        filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a"
-    )
-
-Write an extended XYZ file with a general unitcell (can be scalar, vector, or matrix).
-The Lattice attribute is always 9 numbers, as required for OVITO and similar tools.
-For 2D, a 3x3 matrix is constructed: the input fills the upper-left, rest zeros except for unit z-thickness.
+    write_to_file(filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a")
+Writes the system state to file, expecting a matrix for the box/unitcell.
 """
 function write_to_file(
     filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a"
 )
     open(filepath, mode) do io
         println(io, n_particles)
-        # Prepare a 3×3 box matrix in column-major order, as OVITO expects
-        boxmat = zeros(3, 3)
-        if isa(unitcell, Number)
-            boxmat[1, 1] = unitcell
-            boxmat[2, 2] = unitcell
-            boxmat[3, 3] = unitcell
-        elseif isa(unitcell, AbstractVector)
-            for i in eachindex(unitcell)
-                boxmat[i, i] = unitcell[i]
-            end
-            if dimension == 2
-                boxmat[3, 3] = 1.0 # artificial thickness for 2D
-            end
-        elseif isa(unitcell, AbstractMatrix)
-            boxmat[1:size(unitcell, 1), 1:size(unitcell, 2)] .= unitcell
-            if dimension == 2
-                boxmat[3, 3] = 1.0
-            end
-        else
-            error("Unsupported unitcell type: $(typeof(unitcell))")
-        end
-        # Flatten in column-major order (Julia default)
-        lattice = vec(boxmat)
-        # Write Lattice header (always 9 numbers)
+        # Write matrix as Lattice property (flattened row-major)
+        flat_lattice = join(
+            [string(unitcell[i, j]) for i in 1:dimension, j in 1:dimension], " "
+        )
         Printf.@printf(
             io,
-            "Lattice=\"%.5f %.5f %.5f %.5f %.5f %.5f %.5f %.5f %.5f\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
-            lattice...,
+            "Lattice=\"%s\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
+            flat_lattice,
             dimension,
-            step
+            step,
         )
-        write_particle = if dimension == 2
-            (io, i, diameters, particle) -> Printf.@printf(
-                io,
-                "%d %d %lf %lf %lf\n",
-                1,
-                i,
-                diameters[i] / 2.0,
-                particle[1],
-                particle[2]
-            )
-        elseif dimension == 3
-            (io, i, diameters, particle) -> Printf.@printf(
-                io,
-                "%d %d %lf %lf %lf %lf\n",
-                1,
-                i,
-                diameters[i] / 2.0,
-                particle[1],
-                particle[2],
-                particle[3]
-            )
-        else
-            error("Unsupported dimension: $dimension")
-        end
 
-        for i in eachindex(diameters, positions)
-            particle = positions[i]
-            write_particle(io, i, diameters, particle)
+        # Write particles (for both 2D and 3D)
+        for i in 1:n_particles
+            pos = positions[i]
+            Printf.@printf(io, "%d %d %lf", 1, i, diameters[i] / 2.0)
+            for d in 1:dimension
+                Printf.@printf(io, " %lf", pos[d])
+            end
+            Printf.@printf(io, "\n")
         end
     end
-
     return nothing
 end
 
@@ -217,37 +172,37 @@ end
 
 """
     read_file(filepath; dimension=3)
-
-Reads an extended XYZ file and returns (unitcell, positions, diameters).
-Supports general unitcell (matrix), not just cubic box.
+Reads a configuration file, expecting a matrix for the box/unitcell.
 """
 function read_file(filepath; dimension=3)
+    n_particles = 0
+    unitcell = zeros(dimension, dimension)
+    positions = StaticArrays.SVector{dimension,Float64}[]
+    radii = Float64[]
+
     open(filepath, "r") do io
-        n_particles = parse(Int, readline(io))
+        n_particles = parse(Int64, readline(io))
         header = readline(io)
-        # Extract lattice
-        lattice_str = match(r"Lattice=\"([^\"]+)\"", header).captures[1]
-        lattice_vals = parse.(Float64, split(lattice_str))
-        if dimension == 2
-            unitcell = [lattice_vals[1] 0.0; 0.0 lattice_vals[4]]
-        elseif dimension == 3
-            unitcell = reshape(lattice_vals, 3, 3)
+        m = match(r"Lattice=\"([^\"]+)\"", header)
+        if m !== nothing
+            box_entries = parse.(Float64, split(m.captures[1]))
+            unitcell .= reshape(box_entries, dimension, dimension)
         else
-            error("Unsupported dimension: $dimension")
+            error("Could not parse Lattice property in file header")
         end
-        # Read particles
-        positions = []
-        diameters = []
-        for _ in 1:n_particles
-            line = readline(io)
-            fields = split(line)
-            r = parse(Float64, fields[3])
-            pos = map(x -> parse(Float64, x), fields[4:end])
-            push!(diameters, 2.0 * r)
-            push!(positions, pos)
+
+        for i in 1:n_particles
+            line = split(readline(io), " ")
+            # type, id, radius, x, y, (z)
+            radius = parse(Float64, line[3])
+            coords = parse.(Float64, line[4:(3 + dimension)])
+            push!(radii, radius)
+            push!(positions, StaticArrays.SVector{dimension,Float64}(coords))
         end
-        return unitcell, positions, diameters
     end
+
+    diameters = radii .* 2.0
+    return unitcell, positions, diameters
 end
 
 function compress_zstd(filepath)
