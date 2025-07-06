@@ -1,21 +1,11 @@
 """
-    compute_box_volume(boxl, dimension)
+    compute_box_volume(unitcell)
 
-Compute the simulation box volume for cubic, orthorhombic, or general (triclinic) unitcell.
-- `boxl`: number, vector, or matrix representing the box vectors.
-- `dimension`: 2 or 3.
+Compute the volume (or area in 2D) of the simulation box, given a square matrix `unitcell`.
+This works for any dimension.
 """
-function compute_box_volume(boxl, dimension)
-    if isa(boxl, Number)
-        return boxl^dimension
-    elseif isa(boxl, AbstractVector)
-        return prod(boxl[1:dimension])
-    elseif isa(boxl, AbstractMatrix)
-        # Only use the upper-left d×d block (for 2D, 2×2; for 3D, 3×3)
-        return abs(det(boxl[1:dimension, 1:dimension]))
-    else
-        error("Unsupported box type: $(typeof(boxl))")
-    end
+@inline function compute_box_volume(unitcell)
+    return abs(det(unitcell))
 end
 
 function finalize_simulation!(
@@ -81,7 +71,7 @@ function run_simulation!(
     unitcell_inv = inv(unitcell)
 
     # Compute the volume
-    volume = compute_box_volume(unitcell, dimension)
+    volume = compute_box_volume(unitcell)
 
     # Variables to accumulate results
     virial = 0.0
@@ -207,7 +197,7 @@ function run_simulation!(
     potential = params.potential
 
     # Compute the volume
-    volume = compute_box_volume(state.boxl, dimension)
+    volume = compute_box_volume(state.boxl)
     # Compute the noise term of the diffusion
     sigma = sqrt(2.0 * params.dt)
 
