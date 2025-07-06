@@ -70,12 +70,28 @@ function write_to_file(
 end
 
 """
+    unwrapped(pos, image, unitcell)
+
+Compute the unwrapped (absolute) position of a particle in periodic boundary conditions,
+given its position `pos`, image vector `image`, and the simulation box matrix `boxmat`.
+"""
+@inline function unwrapped(p, img, boxmat)
+    if length(p) == 2
+        p3 = SVector{3,Float64}(p[1], p[2], 0.0)
+        img3 = SVector{3,Int}(img[1], img[2], 0)
+        return p3 + boxmat * img3
+    else
+        return p + boxmat * img
+    end
+end
+
+"""
     write_to_file_lammps(
         filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
     )
 
 Write a LAMMPS trajectory file supporting generic simulation boxes (orthogonal or triclinic).
-- `unitcell` can be a scalar, vector, or matrix describing the box.
+- `unitcell` should be a square matrix (SMatrix or Matrix).
 """
 function write_to_file_lammps(
     filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
@@ -84,20 +100,10 @@ function write_to_file_lammps(
         Printf.@printf(io, "ITEM: TIMESTEP\n%d\n", step)
         Printf.@printf(io, "ITEM: NUMBER OF ATOMS\n%d\n", n_particles)
 
-        # Convert unitcell to a 3x3 matrix
-        boxmat = if isa(unitcell, Number)
-            unitcell * I(3)
-        elseif isa(unitcell, AbstractVector)
-            Diagonal(append!(collect(unitcell), fill(1.0, 3 - length(unitcell))))
-        elseif isa(unitcell, AbstractMatrix)
-            m = zeros(3, 3)
-            m[1:size(unitcell, 1), 1:size(unitcell, 2)] .= unitcell
-            m
-        else
-            error("Unsupported unitcell type: $(typeof(unitcell))")
-        end
+        # Use a 3x3 matrix for box representation (for LAMMPS, pad with identity if 2D)
+        boxmat = zeros(3, 3)
+        boxmat[1:dimension, 1:dimension] .= unitcell
 
-        # Extract box bounds and tilt factors for LAMMPS (see LAMMPS documentation)
         if dimension == 2
             lx = norm(boxmat[:, 1])
             ly = norm(boxmat[:, 2])
@@ -105,17 +111,16 @@ function write_to_file_lammps(
             ylo, yhi = 0.0, ly
             zlo, zhi = 0.0, 1.0
             xy = boxmat[1, 2]
-            # 2D: Only use x/y/xy bounds, z is dummy
             Printf.@printf(io, "ITEM: BOX BOUNDS xy pp pp\n")
             Printf.@printf(io, "%lf %lf %lf\n", xlo, xhi, xy)
             Printf.@printf(io, "%lf %lf 0.0\n", ylo, yhi)
             Printf.@printf(io, "%lf %lf 0.0\n", zlo, zhi)
             Printf.@printf(io, "ITEM: ATOMS id type radius x y xu yu\n")
         elseif dimension == 3
-            # LAMMPS expects box bounds and tilt factors: xlo xhi, ylo yhi, zlo zhi, xy, xz, yz
-            xlo, xhi = 0.0, boxmat[1, 1]
-            ylo, yhi = 0.0, boxmat[2, 2]
-            zlo, zhi = 0.0, boxmat[3, 3]
+            # Extract box bounds and tilt factors for LAMMPS
+            xlo, xhi = 0.0, norm(boxmat[:, 1])
+            ylo, yhi = 0.0, norm(boxmat[:, 2])
+            zlo, zhi = 0.0, norm(boxmat[:, 3])
             xy = boxmat[1, 2]
             xz = boxmat[1, 3]
             yz = boxmat[2, 3]
@@ -128,16 +133,10 @@ function write_to_file_lammps(
             error("Unsupported dimension: $dimension")
         end
 
-        # Helper to unwrap position (x + n * boxmat)
-        function unwrapped(p, img)
-            # for generic box, unwrapped = p + boxmat * img
-            return p + boxmat * img
-        end
-
         for i in eachindex(diameters, positions, images)
             particle = positions[i]
             image = images[i]
-            uw = unwrapped(particle, image)
+            uw = unwrapped(particle, image, boxmat)
             if dimension == 2
                 Printf.@printf(
                     io,
@@ -191,7 +190,7 @@ function read_file(filepath; dimension=3)
             error("Could not parse Lattice property in file header")
         end
 
-        for i in 1:n_particles
+        for _ in 1:n_particles
             line = split(readline(io), " ")
             # type, id, radius, x, y, (z)
             radius = parse(Float64, line[3])

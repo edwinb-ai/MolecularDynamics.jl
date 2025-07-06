@@ -116,11 +116,18 @@ function run_simulation!(
 
         # Output thermodynamic quantities periodically
         if mod(step, frequency) == 0
-            ener_part = system.energy_and_forces.energy / params.n_particles
+            # Always add long-range corrections if needed
+            total_energy = system.energy_and_forces.energy + energy_lrc(potential, params.n_particles, volume)
+            # Make the energy per particle
+            total_energy /= params.n_particles 
+            # We now compute the average temperature
             avg_temp = kinetic_temperature / nprom
+            # we compute the pressure with the virial
             pressure = virial / (dimension * nprom * volume) + params.ρ * avg_temp
+            # Also add the long-range pressure correction
+            pressure += pressure_lrc(potential, params.n_particles, volume)
             open(thermo_file, "a") do io
-                Printf.format(io, format_string, step, ener_part, avg_temp, pressure)
+                Printf.format(io, format_string, step, total_energy, avg_temp, pressure)
             end
             virial, kinetic_temperature, nprom = 0.0, 0.0, 0
         end

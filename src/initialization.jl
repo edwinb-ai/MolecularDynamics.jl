@@ -1,16 +1,17 @@
 """
-    to_unitcell(box)
+    to_unitcell(box, dimension) -> SMatrix
 
-Converts a scalar or vector to a square matrix (diagonal unitcell).
-If a matrix is passed, returns as-is.
+Convert box to a StaticArray SMatrix of size (dimension, dimension).
+Accepts a scalar (creates cubic), vector (diagonal), or matrix (full).
 """
 function to_unitcell(box, dimension)
     if isa(box, Number)
-        return box * Matrix{Float64}(I, dimension, dimension)
+        return box * SMatrix{dimension,dimension,Float64}(I)
     elseif isa(box, AbstractVector)
-        return Diagonal(box)
+        return SMatrix{dimension,dimension,Float64}(Diagonal(box))
     elseif isa(box, AbstractMatrix)
-        return box
+        # Extract upper-left dimension x dimension in case it's bigger
+        return SMatrix{dimension,dimension,Float64}(box[1:dimension, 1:dimension])
     else
         error("Cannot interpret box/unitcell of type $(typeof(box))")
     end
@@ -84,7 +85,8 @@ function initialize_simulation(
         diameters = ones(n_particles)
     else
         # Default cubic/square box
-        boxl = (n_particles / params.ρ)^(1 / dimension)
+        @info "Initializing random positions in a box of dimension $dimension ."
+        boxl = (n_particles / params.ρ)^(1.0 / dimension)
         unitcell = to_unitcell(boxl, dimension)
         positions = initialize_random(unitcell, n_particles, rng, dimension)
         diameters = ones(n_particles)
@@ -132,9 +134,7 @@ function initialize_state(
     end
     reset_output!(system.energy_and_forces)
 
-    images = [
-        zeros(MVector{dimension,Int32}) for _ in eachindex(system.xpositions)
-    ]
+    images = [zeros(MVector{dimension,Int32}) for _ in eachindex(system.xpositions)]
 
     state = SimulationState(
         system,
