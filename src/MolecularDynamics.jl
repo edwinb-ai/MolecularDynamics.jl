@@ -8,7 +8,6 @@ using Statistics: mean
 using Printf
 using FastPow
 using Distributions: Gamma
-using LoopVectorization
 using CellListMap
 using CodecZstd
 using Base.Threads
