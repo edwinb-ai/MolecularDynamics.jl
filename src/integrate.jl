@@ -7,12 +7,14 @@ Velocity Verlet first half-step using generic unitcell.
 """
 function integrate_half!(positions, images, velocities, forces, dt, unitcell, unitcell_inv)
     @threads for i in eachindex(positions, forces, velocities)
-        f = forces[i]
-        x = positions[i]
-        v = velocities[i]
-        velocities[i] = @. v + (f * dt / 2.0)
-        positions[i] = @. x + (velocities[i] * dt)
-        positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
+        @inbounds begin
+            f = forces[i]
+            x = positions[i]
+            v = velocities[i]
+            velocities[i] = @. v + (f * dt / 2.0)
+            positions[i] = @. x + (velocities[i] * dt)
+            positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
+        end
     end
 
     return nothing
@@ -25,9 +27,11 @@ Velocity Verlet second half-step.
 """
 function integrate_second_half!(velocities, forces, dt)
     @threads for i in eachindex(velocities, forces)
-        v = velocities[i]
-        f = forces[i]
-        velocities[i] = @. v + (f * dt / 2.0)
+        @inbounds begin
+            v = velocities[i]
+            f = forces[i]
+            velocities[i] = @. v + (f * dt / 2.0)
+        end
     end
 
     return nothing
@@ -65,8 +69,8 @@ function integrate_brownian!(
     noise = zeros(MVector{dimension,Float64})
 
     @inbounds for i in eachindex(positions, forces)
-        f = forces[i]
-        x = positions[i]
+        f = @view forces[i]
+        x = @view positions[i]
         sample_uniform!(noise, rng)
         positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
         positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)

@@ -8,9 +8,9 @@ end
 
 PseudoHS() = PseudoHS(pseudohs)
 
-function evaluate(pot::PseudoHS, r::Real; sigma1=1.0, sigma2=1.0, lambda=50.0)
+function evaluate(pot::PseudoHS, r::Float64, sigma1::Float64, sigma2::Float64)
     sigma = (sigma1 + sigma2) / 2.0
-    return pot.potf(r, sigma; lambda=lambda)
+    return pot.potf(r, sigma; lambda=50.0)
 end
 
 FastPow.@fastpow function pseudohs(rij, sigma; lambda=50.0)
@@ -45,58 +45,60 @@ struct LennardJones <: Potential
     shift::Bool
     force_shift::Bool
     tail_correction::Bool
+    V_cut::Float64
+    F_cut::Float64
 end
 
 function LennardJones(;
-    epsilon::Float64=1.0,
-    sigma::Float64=1.0,
-    r_cut::Float64=2.5,
-    shift::Bool=false,
-    force_shift::Bool=false,
-    tail_correction::Bool=false,
+    epsilon=1.0, sigma=1.0, r_cut=2.5, shift=false, force_shift=false, tail_correction=false
 )
-    return LennardJones(epsilon, sigma, r_cut, shift, force_shift, tail_correction)
+    srcut = sigma / r_cut
+    srcut2 = srcut^2
+    srcut6 = srcut2^3
+    srcut12 = srcut6^2
+    Vcut = 4.0 * epsilon * (srcut12 - srcut6)
+    Fcut = 24.0 * epsilon * (2.0 * srcut12 - srcut6) / r_cut
+    return LennardJones(
+        epsilon, sigma, r_cut, shift, force_shift, tail_correction, Vcut, Fcut
+    )
 end
 
-"""
-    lj_energy_force(r, pot::LennardJones)
-
-Compute the (possibly shifted) Lennard-Jones potential and force for distance `r`.
-Returns a tuple `(energy, force)`.
-"""
-FastPow.@fastpow function lj_energy_force(r, pot::LennardJones)
-    σ, ϵ, r_cut = pot.sigma, pot.epsilon, pot.r_cut
+@inline function lj_unshifted(r, epsilon, sigma, r_cut)
     if r >= r_cut
         return 0.0, 0.0
     end
-    sr = σ / r
+    sr = sigma / r
     sr2 = sr^2
     sr6 = sr2^3
     sr12 = sr6^2
-    V = 4.0 * ϵ * (sr12 - sr6)
-    F = 24.0 * ϵ * (2.0 * sr12 - sr6) / r
+    V = 4.0 * epsilon * (sr12 - sr6)
+    F = 24.0 * epsilon * (2.0 * sr12 - sr6) / r
+    return V, F
+end
 
-    if pot.force_shift
-        # Linear force shift (force and energy go to zero at r_cut)
-        srcut = σ / r_cut
-        srcut2 = srcut^2
-        srcut6 = srcut2^3
-        srcut12 = srcut6^2
-        Vcut = 4.0 * ϵ * (srcut12 - srcut6)
-        Fcut = 24.0 * ϵ * (2 * srcut12 - srcut6) / r_cut
-        V = V - Vcut - (r - r_cut) * Fcut
-        F = F - Fcut
-    elseif pot.shift
-        # Energy shift (energy only goes to zero at r_cut)
-        srcut = σ / r_cut
-        srcut2 = srcut^2
-        srcut6 = srcut2^3
-        srcut12 = srcut6^2
-        Vcut = 4.0 * ϵ * (srcut12 - srcut6)
-        V = V - Vcut
-        # F is unchanged
+@inline function lj_energy_shifted(r, epsilon, sigma, r_cut, Vcut)
+    if r >= r_cut
+        return 0.0, 0.0
     end
+    sr = sigma / r
+    sr2 = sr^2
+    sr6 = sr2^3
+    sr12 = sr6^2
+    V = 4.0 * epsilon * (sr12 - sr6) - Vcut
+    F = 24.0 * epsilon * (2.0 * sr12 - sr6) / r
+    return V, F
+end
 
+@inline function lj_force_shifted(r, epsilon, sigma, r_cut, Vcut, Fcut)
+    if r >= r_cut
+        return 0.0, 0.0
+    end
+    sr = sigma / r
+    sr2 = sr^2
+    sr6 = sr2^3
+    sr12 = sr6^2
+    V = 4.0 * epsilon * (sr12 - sr6) - Vcut - (r - r_cut) * Fcut
+    F = 24.0 * epsilon * (2.0 * sr12 - sr6) / r - Fcut
     return V, F
 end
 
@@ -106,7 +108,7 @@ end
 Compute the standard long-range energy correction for Lennard-Jones with a sharp cutoff.
 Returns the *total* energy correction for the system.
 """
-function ener_lrc(cutoff, density, sigma=1.0)
+@inline function ener_lrc(cutoff, density, sigma=1.0)
     uij = (((sigma / cutoff)^9) / 3.0) - ((sigma / cutoff)^3)
     uij *= 8.0 * pi * density / 3.0
     return uij
@@ -118,7 +120,7 @@ end
 Compute the standard long-range pressure correction for Lennard-Jones with a sharp cutoff.
 Returns the *total* pressure correction for the system.
 """
-function pressure_lrc(cutoff, density, sigma=1.0)
+@inline function pressure_lrc(cutoff, density, sigma=1.0)
     sr3 = (sigma / cutoff)^3
     result = (2.0 * sr3^3 / 3.0) - sr3
     result *= 16.0 * pi * density^2 / 3.0
@@ -131,7 +133,7 @@ end
 Return the analytic long-range energy correction for `LennardJones` potential if enabled,
 otherwise returns 0.0.
 """
-function energy_lrc(pot::LennardJones, N, V)
+@inline function energy_lrc(pot::LennardJones, N, V)
     # By convention, use energy shift for plain and energy-shifted, and LRC if requested.
     # (Add a field if you want to toggle LRC on/off)
     ρ = N / V
@@ -144,7 +146,7 @@ end
 Return the analytic long-range pressure correction for `LennardJones` potential if enabled,
 otherwise returns 0.0.
 """
-function pressure_lrc(pot::LennardJones, N, V)
+@inline function pressure_lrc(pot::LennardJones, N, V)
     ρ = N / V
     return pot.tail_correction ? pressure_lrc(pot.r_cut, ρ, pot.sigma) : 0.0
 end
@@ -155,18 +157,10 @@ end
 Evaluate the Lennard-Jones potential for a given distance `r`, with optional individual sigmas.
 Returns a tuple `(energy, force)`.
 """
-function evaluate(pot::LennardJones, r::Real; sigma1=pot.sigma, sigma2=pot.sigma)
+@inline function evaluate(pot::LennardJones, r::Float64, sigma1::Float64, sigma2::Float64)
     # ! FIXME: Mixing rules cannot be assumed for the user
     σ = (sigma1 + sigma2) / 2.0
-    scaled_pot = LennardJones(;
-        epsilon=pot.epsilon,
-        sigma=σ,
-        r_cut=pot.r_cut,
-        shift=pot.shift,
-        force_shift=pot.force_shift,
-        tail_correction=pot.tail_correction,
-    )
-    return lj_energy_force(r, scaled_pot)
+    return lj_unshifted(r, pot.epsilon, σ, pot.r_cut)
 end
 
 """

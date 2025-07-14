@@ -111,7 +111,7 @@ function initialize_state(
     dimension::Int=3,
     random_init=false,
     cutoff=1.5,
-    rng::Random.AbstractRNG=Random.Xoshiro(),
+    rng::AbstractRNG=Random.Xoshiro(),
     unitcell=nothing,
     positions=nothing,
     diameters=nothing,
