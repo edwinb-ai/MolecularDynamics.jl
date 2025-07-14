@@ -68,12 +68,14 @@ function integrate_brownian!(
 )
     noise = zeros(MVector{dimension,Float64})
 
-    @inbounds for i in eachindex(positions, forces)
-        f = @view forces[i]
-        x = @view positions[i]
-        sample_uniform!(noise, rng)
-        positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
-        positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
+    @threads for i in eachindex(positions, forces)
+        @inbounds begin 
+            f = forces[i]
+            x = positions[i]
+            sample_uniform!(noise, rng)
+            positions[i] = @. x + (f * dt / ktemp) + (noise * sigma)
+            positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
+        end
     end
 
     return nothing
