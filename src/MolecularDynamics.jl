@@ -8,6 +8,7 @@ using Statistics: mean
 using Printf
 using FastPow
 using Distributions: Gamma
+using LoopVectorization
 using CellListMap
 using CodecZstd
 using Base.Threads
@@ -26,12 +27,12 @@ include("minimize.jl")
 include("temperature_ramps.jl")
 include("simulation.jl")
 
-export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation! 
+export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!
 export PseudoHS, LennardJonesXPLOR, LennardJones
 export LinearRamp, ExponentialRamp
 export minimize!
 export initial_temperature_for_velocities, initialize_velocities
 
-public Potential,evaluate
+public Potential, evaluate
 
 end
