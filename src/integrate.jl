@@ -69,7 +69,7 @@ function integrate_brownian!(
     noise = zeros(MVector{dimension,Float64})
 
     @threads for i in eachindex(positions, forces)
-        @inbounds begin 
+        @inbounds begin
             f = forces[i]
             x = positions[i]
             sample_uniform!(noise, rng)

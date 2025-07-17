@@ -2,5 +2,8 @@
 *.txt
 *.xyz*
 
+# Testing files/directories
+testing/
+
 # Julia files
 Manifest.toml

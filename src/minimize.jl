@@ -47,7 +47,9 @@ function fire_minimize!(
     N = params.n_particles
     diameters = state.diameters
     potential = params.potential
-    boxl = state.boxl
+    unitcell = state.unitcell
+    # We need the inverse of the box matrix
+    unitcell_inv = inv(state.unitcell)
 
     # Initialize internal variables
     α = alpha0
@@ -60,13 +62,14 @@ function fire_minimize!(
     # Degrees of freedom
     ndof = dimension * (N - 1.0)
 
+    # Define the energy function to avoid allocations
+    function pairwise_eval(x, y, i, j, d2, output)
+        return energy_and_forces!(x, y, i, j, d2, diameters, output, potential)
+    end
+
     for step in 1:max_steps
         reset_output!(system.energy_and_forces)
-        CellListMap.map_pairwise!(
-            (x, y, i, j, d2, output) ->
-                energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
-            system,
-        )
+        CellListMap.map_pairwise!(pairwise_eval, system)
         forces = system.energy_and_forces.forces
         energy = system.energy_and_forces.energy
 
@@ -114,18 +117,14 @@ function fire_minimize!(
         for i in eachindex(system.xpositions)
             x = system.xpositions[i]
             system.xpositions[i] = @. x + dt * v[i]
-            system.xpositions[i] = register_images_and_wrap!(
-                system.xpositions[i], images[i], boxl
+            system.xpositions[i] = wrap_to_box!(
+                system.xpositions[i], images[i], unitcell, unitcell_inv
             )
         end
     end
 
     reset_output!(system.energy_and_forces)
-    CellListMap.map_pairwise!(
-        (x, y, i, j, d2, output) ->
-            energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
-        system,
-    )
+    CellListMap.map_pairwise!(pairwise_eval, system)
     forces = system.energy_and_forces.EnergyAndForces.forces
     F_norm = sqrt(sum(norm(f)^2 for f in forces))
     F_norm /= sqrt(ndof)
@@ -180,14 +179,14 @@ function minimize!(
     end
 
     # Unpack some variables and save the final configuration to file
-    boxl = state.boxl
+    unitcell = state.unitcell
     positions = state.system.xpositions
     diameters = state.diameters
     n_particles = params.n_particles
     write_to_file(
         joinpath(pathname, save_config),
         0,
-        boxl,
+        unitcell,
         n_particles,
         positions,
         diameters,
