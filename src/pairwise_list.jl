@@ -80,15 +80,15 @@ function energy_and_forces!(
         σ2 = diameters[j]
         rvec = xj - xi
         (uij, fij) = evaluate(potential, dist, σ1, σ2)
-        fij_vec = @. fij * (rvec / dist)
+        fij_vec = @. fij * rvec / dist
 
         buffers.energy_tls[tid] += uij
         buffers.virial_tls[tid] += dot(fij_vec, rvec)
         buffers.forces_tls[tid][i] .+= fij_vec
         buffers.forces_tls[tid][j] .-= fij_vec
     end
+
     # Reduce thread-local results into output
-    # reset_output!(output)
     vector_size = length(output.forces[1])
     for tid in 1:nthreads
         output.energy += buffers.energy_tls[tid]

@@ -90,15 +90,10 @@ function run_simulation!(
 
     # Allocate and cache thread-local buffers for the entire simulation
     thread_buffers = init_thread_local_buffers(params.n_particles, dimension, eltype(particle_system.positions[1]))
+    CellListMap.update!(neighbor_system, particle_system.positions)
     neighborlist = CellListMap.neighborlist!(neighbor_system)
 
     for step in 0:(total_steps - 1)
-        # Periodically rebuild neighbor list
-        if step % neighborlist_frequency == 0
-            CellListMap.update!(neighbor_system, particle_system.positions)
-            neighborlist = CellListMap.neighborlist!(neighbor_system)
-        end
-
         # Perform integration
         integrate_half!(
             particle_system.positions,
@@ -109,9 +104,15 @@ function run_simulation!(
             unitcell,
             unitcell_inv,
         )
-        reset_output!(energy_and_forces)
 
-        # Parallel force/energy calculation with thread-local buffers
+        # Periodically rebuild neighbor list
+        if step % neighborlist_frequency == 0
+            CellListMap.update!(neighbor_system, particle_system.positions)
+            neighborlist = CellListMap.neighborlist!(neighbor_system)
+        end
+
+        # force/energy calculation with thread-local buffers
+        reset_output!(energy_and_forces)
         energy_and_forces!(
             particle_system.positions,
             particle_system.positions,
@@ -121,9 +122,8 @@ function run_simulation!(
             diameters,
             thread_buffers,
         )
-
         integrate_second_half!(velocities, energy_and_forces.forces, params.dt)
-        
+
         # Apply ensemble-specific logic
         temperature = ensemble_step!(ensemble, velocities, params, state, step + 1)
 
