@@ -92,32 +92,30 @@ function initialize_simulation(
         diameters = ones(n_particles)
     end
 
-    system = CellListMap.ParticleSystem(;
-        xpositions=positions,
+    system = CellListMap.InPlaceNeighborList(;
+        x=positions,
         unitcell=unitcell,
         cutoff=cutoff,
-        output=EnergyAndForces(0.0, 0.0, similar(positions)),
-        output_name=:energy_and_forces,
         parallel=true,
     )
 
-    return system, unitcell, diameters
+    return system, unitcell, diameters, positions
 end
 
 function initialize_state(
     params::Parameters,
     pathname::String;
+    cutoff::Float64=1.0,
     from_file::String="",
     dimension::Int=3,
     random_init=false,
-    cutoff=1.5,
     rng::AbstractRNG=Random.Xoshiro(),
     unitcell=nothing,
     positions=nothing,
     diameters=nothing,
 )
     nf = dimension * (params.n_particles - 1.0)
-    (system, unitcell, diameters) = initialize_simulation(
+    (system, unitcell, diameters, positions) = initialize_simulation(
         params,
         rng,
         dimension;
@@ -129,19 +127,26 @@ function initialize_state(
         diameters=diameters,
     )
 
-    for i in eachindex(system.energy_and_forces.forces)
-        system.energy_and_forces.forces[i] = zeros(SVector{dimension})
-    end
-    reset_output!(system.energy_and_forces)
+    # We need to initialize and use the energy and forces type
+    energy_and_forces = EnergyAndForces(0.0, 0.0, similar(positions))
 
-    images = [zeros(MVector{dimension,Int32}) for _ in eachindex(system.xpositions)]
+    for i in eachindex(energy_and_forces.forces)
+        energy_and_forces.forces[i] = zeros(SVector{dimension})
+    end
+    reset_output!(energy_and_forces)
+
+    # We now need a ParticleSystem type
+    particle_system = ParticleSystem(energy_and_forces, positions, system)
+
+    images = [zeros(MVector{dimension,Int32}) for _ in eachindex(particle_system.positions)]
+    velocities = Vector{SVector{dimension,Float64}}()
 
     state = SimulationState(
-        system,
+        particle_system,
         diameters,
         rng,
         unitcell,
-        Vector{SVector{dimension,Float64}}(),
+        velocities,
         images,
         dimension,
         nf,
@@ -152,8 +157,8 @@ function initialize_state(
         joinpath(pathname, "init.xyz"),
         0,
         unitcell,
-        length(system.positions),
-        system.positions,
+        length(particle_system.positions),
+        particle_system.positions,
         diameters,
         dimension;
         mode="w",

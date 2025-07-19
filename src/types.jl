@@ -5,12 +5,6 @@ function evaluate(pot::Potential, r::Real; kwargs...)
     return error("evaluate not implemented for potential type: $(typeof(pot))")
 end
 
-mutable struct NeighborLists{T,U}
-    neighbor_system::T
-    cached_neighbor_list::Vector{Tuple{Int,Int,Float64}}
-    last_rebuild_positions::U
-end
-
 struct Parameters
     ρ::Float64
     n_particles::Int
@@ -18,7 +12,19 @@ struct Parameters
     potential::Potential
 end
 
-mutable struct SimulationState{T,W,M,N}
+mutable struct EnergyAndForces{T}
+    energy::Float64
+    virial::Float64
+    forces::T
+end
+
+mutable struct ParticleSystem{T,U,V}
+    energy_forces::T
+    positions::U
+    neighbor_system::V
+end
+
+mutable struct SimulationState{T,W,M}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
@@ -35,8 +41,6 @@ mutable struct SimulationState{T,W,M,N}
     dimension::Int
     # The degrees of freedom
     nf::Float64
-    # The neighbor lists
-    neighbor_list::N
 end
 
 abstract type Ensemble end
@@ -58,8 +62,3 @@ end
 
 struct NVE <: Ensemble end
 
-mutable struct EnergyAndForces{T}
-    energy::Float64
-    virial::Float64
-    forces::T
-end
