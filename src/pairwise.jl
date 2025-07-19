@@ -1,8 +1,3 @@
-"Custom copy, reset and reducer functions"
-function copy_output(x::EnergyAndForces)
-    return EnergyAndForces(copy(x.energy), copy(x.virial), copy(x.forces))
-end
-
 function reset_output!(output::EnergyAndForces)
     output.energy = 0.0
     output.virial = 0.0
@@ -12,14 +7,6 @@ function reset_output!(output::EnergyAndForces)
     end
 
     return output
-end
-
-function reducer(x::EnergyAndForces, y::EnergyAndForces)
-    e_tot = x.energy + y.energy
-    vir_tot = x.virial + y.virial
-    x.forces .+= y.forces
-
-    return EnergyAndForces(e_tot, vir_tot, x.forces)
 end
 
 "Function that updates energy and forces for each pair"

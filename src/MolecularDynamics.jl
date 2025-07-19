@@ -11,7 +11,6 @@ using Distributions: Gamma
 using CellListMap
 using CodecZstd
 using Base.Threads
-import CellListMap: copy_output, reset_output!, reducer
 using Packmol: pack_monoatomic!
 
 include("types.jl")

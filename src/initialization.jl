@@ -104,23 +104,23 @@ function initialize_simulation(
         parallel=true,
     )
 
-    return system, unitcell, diameters
+    return system, unitcell, diameters, positions
 end
 
 function initialize_state(
     params::Parameters,
     pathname::String;
+    cutoff::Float64=1.0,
     from_file::String="",
     dimension::Int=3,
     random_init=false,
-    cutoff=1.5,
     rng::AbstractRNG=Random.Xoshiro(),
     unitcell=nothing,
     positions=nothing,
     diameters=nothing,
 )
     nf = dimension * (params.n_particles - 1.0)
-    (system, unitcell, diameters) = initialize_simulation(
+    (system, unitcell, diameters, positions) = initialize_simulation(
         params,
         rng,
         dimension;
@@ -144,8 +144,8 @@ function initialize_state(
         joinpath(pathname, "init.xyz"),
         0,
         unitcell,
-        length(system.positions),
-        system.positions,
+        length(particle_system.positions),
+        particle_system.positions,
         diameters,
         dimension;
         mode="w",
