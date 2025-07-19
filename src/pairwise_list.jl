@@ -64,7 +64,7 @@ Parallel computation using a neighbor list produced by CellListMap.neighborlist(
 - buffers: ThreadLocalBuffers, to be reused across time steps
 """
 function energy_and_forces!(
-    x, y, neighborlist, output, potential, diameters, buffers::ThreadLocalBuffers
+    x, neighborlist, output, potential, diameters, buffers::ThreadLocalBuffers
 )
     n = length(x)
     nthreads = Threads.nthreads()
@@ -75,7 +75,7 @@ function energy_and_forces!(
         tid = threadid()
         (i, j, dist) = neighborlist[k]
         xi = x[i]
-        xj = y[j]
+        xj = x[j]
         σ1 = diameters[i]
         σ2 = diameters[j]
         rvec = xj - xi
@@ -94,7 +94,7 @@ function energy_and_forces!(
         output.energy += buffers.energy_tls[tid]
         output.virial += buffers.virial_tls[tid]
         @inbounds for i in eachindex(output.forces)
-            output.forces[i] = SVector{vector_size}(buffers.forces_tls[tid][i]) .+ output.forces[i]
+            output.forces[i] = SVector{vector_size}(buffers.forces_tls[tid][i] .+ output.forces[i])
         end
     end
 

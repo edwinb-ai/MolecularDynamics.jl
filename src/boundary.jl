@@ -16,18 +16,3 @@ function wrap_to_box(x, image, unitcell, unitcell_inv)
     return wrapped_x
 end
 
-"""
-    minimum_image(rvec, unitcell, unitcell_inv)
-
-Given a displacement vector `rvec = xj - xi`, returns the minimum-image displacement
-according to the periodic box described by `unitcell` and `unitcell_inv`.
-All vectors/matrices are StaticArrays.
-"""
-function minimum_image(rvec, unitcell, unitcell_inv)
-    # Convert to fractional coordinates
-    frac = unitcell_inv * rvec
-    # Shift by nearest integer to put in [-0.5, 0.5)
-    frac = frac .- round.(frac)
-    # Back to cartesian
-    return unitcell * frac
-end

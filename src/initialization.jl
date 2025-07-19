@@ -144,7 +144,7 @@ function initialize_state(
         joinpath(pathname, "init.xyz"),
         0,
         unitcell,
-        length(particle_system.positions),
+        params.n_particles,
         particle_system.positions,
         diameters,
         dimension;
