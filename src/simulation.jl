@@ -48,6 +48,7 @@ function run_simulation!(
     thermo_name::String="thermo.txt",
     compress::Bool=false,
     log_times::Bool=false,
+    neighborlist_frequency::Int=25,
 )
     # Remove the files if they existed, and return the files handles
     (trajectory_file, thermo_file) = open_files(pathname, traj_name, thermo_name)
@@ -58,7 +59,9 @@ function run_simulation!(
     end
 
     # Extract parameters from the state
-    system = state.system
+    particle_system = state.system
+    neighbor_system = particle_system.neighbor_system
+    energy_and_forces = particle_system.energy_forces
     velocities = state.velocities
     diameters = state.diameters
     images = state.images
@@ -85,31 +88,49 @@ function run_simulation!(
         local current_snapshot_index = 1
     end
 
+    # Allocate and cache thread-local buffers for the entire simulation
+    thread_buffers = init_thread_local_buffers(params.n_particles, dimension, eltype(particle_system.positions[1]))
+    neighborlist = CellListMap.neighborlist!(neighbor_system)
+
     for step in 0:(total_steps - 1)
+        # Periodically rebuild neighbor list
+        if step % neighborlist_frequency == 0
+            CellListMap.update!(neighbor_system, particle_system.positions)
+            neighborlist = CellListMap.neighborlist!(neighbor_system)
+        end
+
         # Perform integration
         integrate_half!(
-            system.positions,
+            particle_system.positions,
             images,
             velocities,
-            system.energy_and_forces.forces,
+            energy_and_forces.forces,
             params.dt,
             unitcell,
             unitcell_inv,
         )
-        reset_output!(system.energy_and_forces)
-        CellListMap.map_pairwise!(
-            (x, y, i, j, d2, output) ->
-                energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
-            system,
-        )
-        integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
+        reset_output!(energy_and_forces)
 
+        # Parallel force/energy calculation with thread-local buffers
+        energy_and_forces!(
+            particle_system.positions,
+            particle_system.positions,
+            neighborlist,
+            energy_and_forces,
+            potential,
+            diameters,
+            thread_buffers,
+        )
+
+        integrate_second_half!(velocities, energy_and_forces.forces, params.dt)
+
+        
         # Apply ensemble-specific logic
         temperature = ensemble_step!(ensemble, velocities, params, state, step + 1)
 
         # Accumulate values for thermodynamics
         if mod(step, 10) == 0
-            virial += system.energy_and_forces.virial
+            virial += energy_and_forces.virial
             kinetic_temperature += temperature
             nprom += 1
         end
@@ -118,7 +139,7 @@ function run_simulation!(
         if mod(step, frequency) == 0
             # Always add long-range corrections if needed
             total_energy =
-                system.energy_and_forces.energy +
+                energy_and_forces.energy +
                 energy_lrc(potential, params.n_particles, volume)
             # Make the energy per particle
             total_energy /= params.n_particles
@@ -141,7 +162,7 @@ function run_simulation!(
                 step,
                 unitcell,
                 params.n_particles,
-                system.positions,
+                particle_system.positions,
                 images,
                 diameters,
                 dimension;
@@ -159,7 +180,7 @@ function run_simulation!(
                     snap_step,
                     unitcell,
                     params.n_particles,
-                    system.positions,
+                    particle_system.positions,
                     images,
                     diameters,
                     dimension;
