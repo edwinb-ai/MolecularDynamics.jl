@@ -27,7 +27,7 @@ Initialize thread-local buffers for parallel force/energy computation.
 """
 function init_thread_local_buffers(n_particles::Int, dimension::Int, T::Type=Float64)
     nthreads = Threads.nthreads()
-    forces_tls = [fill(zero(MVector{dimension,T}), n_particles) for _ in 1:nthreads]
+    forces_tls = [[zero(MVector{dimension,T}) for _ in 1:n_particles] for _ in 1:nthreads]
     energy_tls = zeros(Float64, nthreads)
     virial_tls = zeros(Float64, nthreads)
     return ThreadLocalBuffers(forces_tls, energy_tls, virial_tls)
@@ -39,8 +39,10 @@ end
 Reset all accumulators to zero before each parallel computation.
 """
 function reset_thread_local_buffers!(buffers::ThreadLocalBuffers, n_particles::Int)
-    @inbounds for f in buffers.forces_tls
-        fill!(f, zero(eltype(f)))
+    @inbounds for fvec in buffers.forces_tls
+        @simd for fi in fvec
+            fill!(fi, 0.0)
+        end
     end
     fill!(buffers.energy_tls, 0.0)
     fill!(buffers.virial_tls, 0.0)
@@ -77,7 +79,7 @@ function energy_and_forces!(
         σ1 = diameters[i]
         σ2 = diameters[j]
         rvec = xj - xi
-        uij, fij = evaluate(potential, dist, σ1, σ2)
+        (uij, fij) = evaluate(potential, dist, σ1, σ2)
         fij_vec = @. fij * (rvec / dist)
 
         buffers.energy_tls[tid] += uij
@@ -85,7 +87,6 @@ function energy_and_forces!(
         buffers.forces_tls[tid][i] .+= fij_vec
         buffers.forces_tls[tid][j] .-= fij_vec
     end
-
     # Reduce thread-local results into output
     # reset_output!(output)
     vector_size = length(output.forces[1])

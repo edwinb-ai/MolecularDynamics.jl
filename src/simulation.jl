@@ -123,7 +123,6 @@ function run_simulation!(
         )
 
         integrate_second_half!(velocities, energy_and_forces.forces, params.dt)
-
         
         # Apply ensemble-specific logic
         temperature = ensemble_step!(ensemble, velocities, params, state, step + 1)
