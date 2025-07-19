@@ -133,7 +133,6 @@ function initialize_state(
     for i in eachindex(energy_and_forces.forces)
         energy_and_forces.forces[i] = zeros(SVector{dimension})
     end
-    reset_output!(energy_and_forces)
 
     # We now need a ParticleSystem type
     particle_system = ParticleSystem(energy_and_forces, positions, system)
