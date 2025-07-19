@@ -16,11 +16,11 @@ mutable struct SimulationState{T,U,V,W,M,N,F<:AbstractFloat,I<:Integer}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
-    diameters::U
+    diameters::Vector{Float64}
     # The RNG
-    rng::V
+    rng::AbstractRNG
     # The size of the simulation box
-    unitcell::N
+    unitcell::AbstractMatrix{Float64}
     # The container for the velocities
     velocities::W
     # The images for the particles
