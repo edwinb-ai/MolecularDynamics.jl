@@ -92,15 +92,10 @@ function initialize_simulation(
         diameters = ones(n_particles)
     end
 
-    forces = similar(positions)
-    forces .= zero.(positions)
-    energy_and_forces = EnergyAndForces(zero(cutoff), zero(cutoff), forces)
-    system = CellListMap.ParticleSystem(;
-        xpositions=positions,
+    system = CellListMap.InPlaceNeighborList(;
+        x=positions,
         unitcell=unitcell,
         cutoff=cutoff,
-        output=energy_and_forces,
-        output_name=:energy_and_forces,
         parallel=true,
     )
 
@@ -132,11 +127,16 @@ function initialize_state(
         diameters=diameters,
     )
 
-    images = [zeros(MVector{dimension,Int32}) for _ in eachindex(system.xpositions)]
+    forces = similar(positions)
+    forces .= zero.(positions)
+    energy_and_forces = EnergyAndForces(zero(cutoff), zero(cutoff), forces)
+    particle_system = ParticleSystem(system, positions, energy_and_forces)
+
+    images = [zeros(MVector{dimension,Int32}) for _ in eachindex(positions)]
     empty_velocities = Vector{MVector{dimension,Float64}}()
 
     state = SimulationState(
-        system, diameters, rng, unitcell, empty_velocities, images, dimension, nf
+        particle_system, diameters, rng, unitcell, empty_velocities, images, dimension, nf
     )
 
     # Write initial configuration

@@ -1,7 +1,10 @@
 function reset_output!(output::EnergyAndForces)
     output.energy = 0.0
     output.virial = 0.0
-    fill!(output.forces, zeros(eltype(output.forces)))
+
+    @inbounds for f in output.forces
+        fill!(f, zero(Float64))
+    end
 
     return nothing
 end
@@ -39,8 +42,8 @@ end
 Reset all accumulators to zero before each parallel computation.
 """
 function reset_thread_local_buffers!(buffers::ThreadLocalBuffers, n_particles::Int)
-    @inbounds for fvec in buffers.forces_tls
-        @simd for fi in fvec
+    @simd for fvec in buffers.forces_tls
+        @inbounds for fi in fvec
             fill!(fi, 0.0)
         end
     end
@@ -94,7 +97,7 @@ function energy_and_forces!(
         output.energy += buffers.energy_tls[tid]
         output.virial += buffers.virial_tls[tid]
         @inbounds for i in eachindex(output.forces)
-            output.forces[i] = SVector{vector_size}(buffers.forces_tls[tid][i] .+ output.forces[i])
+            output.forces[i] .+= buffers.forces_tls[tid][i]
         end
     end
 

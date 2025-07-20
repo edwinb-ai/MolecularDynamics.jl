@@ -93,47 +93,7 @@ function run_simulation!(
     CellListMap.update!(neighbor_system, particle_system.positions)
     neighborlist = CellListMap.neighborlist!(neighbor_system)
 
-    function diagnose_extreme_forces(
-        positions, neighborlist, potential, diameters, 
-        threshold=1000.0, extreme_pairs_limit=10
-    )
-        extreme_pairs = []
-        
-        for k in eachindex(neighborlist)
-            (i, j, dist) = neighborlist[k]
-            if dist > 0.0
-                xi = positions[i]
-                xj = positions[j]
-                σ1 = diameters[i]
-                σ2 = diameters[j]
-                rvec = xj - xi
-                
-                # Calculate force
-                (uij, fij) = evaluate(potential, dist, σ1, σ2)
-                
-                if abs(fij) > threshold
-                    push!(extreme_pairs, (i, j, dist, fij, σ1, σ2))
-                    if length(extreme_pairs) >= extreme_pairs_limit
-                        break
-                    end
-                end
-            end
-        end
-        
-        return extreme_pairs
-    end
-
     # Add to simulation loop right after neighbor list creation
-    extreme_forces = diagnose_extreme_forces(
-        particle_system.positions, neighborlist, potential, diameters
-    )
-    if !isempty(extreme_forces)
-        @warn "Extreme forces detected at step $step:"
-        for (i, j, dist, fij, σ1, σ2) in extreme_forces
-            @warn "Particles $i-$j: dist=$dist, force=$fij, σ1=$σ1, σ2=$σ2"
-        end
-    end
-
     for step in 0:(total_steps - 1)
         # Perform integration
         integrate_half!(
@@ -147,21 +107,8 @@ function run_simulation!(
         )
 
         # Periodically rebuild neighbor list
-        if step % neighborlist_frequency == 0
-            CellListMap.update!(neighbor_system, particle_system.positions)
-            neighborlist = CellListMap.neighborlist!(neighbor_system)
-            if step % 10 == 0  # Check periodically
-                extreme_forces = diagnose_extreme_forces(
-                    particle_system.positions, neighborlist, potential, diameters
-                )
-                if !isempty(extreme_forces)
-                    @warn "Extreme forces detected at step $step:"
-                    for (i, j, dist, fij, σ1, σ2) in extreme_forces
-                        @warn "Particles $i-$j: dist=$dist, force=$fij, σ1=$σ1, σ2=$σ2"
-                    end
-                end
-            end
-        end
+        CellListMap.update!(neighbor_system, particle_system.positions)
+        neighborlist = CellListMap.neighborlist!(neighbor_system)
 
         # force/energy calculation with thread-local buffers
         reset_output!(energy_and_forces)

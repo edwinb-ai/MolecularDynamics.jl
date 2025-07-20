@@ -12,7 +12,13 @@ struct Parameters{P<:Potential,T<:AbstractFloat,N<:Integer}
     potential::P
 end
 
-mutable struct SimulationState{T,U,V,W,M,N,F<:AbstractFloat,I<:Integer}
+mutable struct ParticleSystem{T,P,U}
+    neighbor_system::T
+    positions::P
+    energy_forces::U
+end
+
+mutable struct SimulationState{T,W,M,F<:AbstractFloat,I<:Integer}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
