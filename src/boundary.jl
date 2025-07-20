@@ -1,10 +1,10 @@
 """
-    wrap_to_box!(x, image, unitcell, unitcell_inv)
+    wrap_to_box(x, image, unitcell, unitcell_inv)
 
 Wrap position x (vector) into the periodic box defined by unitcell.
 Also updates the image vector.
 """
-function wrap_to_box!(x, image, unitcell, unitcell_inv)
+function wrap_to_box(x, image, unitcell, unitcell_inv)
     # Map Cartesian to fractional coordinates
     frac = unitcell_inv * x
     n_cross = floor.(frac)

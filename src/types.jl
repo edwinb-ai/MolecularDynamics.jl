@@ -5,14 +5,14 @@ function evaluate(pot::Potential, r::Real; kwargs...)
     return error("evaluate not implemented for potential type: $(typeof(pot))")
 end
 
-struct Parameters
-    ρ::Float64
-    n_particles::Int
-    dt::Float64
-    potential::Potential
+struct Parameters{P<:Potential,T<:AbstractFloat,N<:Integer}
+    ρ::T
+    n_particles::N
+    dt::T
+    potential::P
 end
 
-mutable struct SimulationState{T,U,V,W,M,N}
+mutable struct SimulationState{T,U,V,W,M,N,F<:AbstractFloat,I<:Integer}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
@@ -26,32 +26,32 @@ mutable struct SimulationState{T,U,V,W,M,N}
     # The images for the particles
     images::M
     # The dimension of the system
-    dimension::Int
+    dimension::I
     # The degrees of freedom
-    nf::Float64
+    nf::F
 end
 
 abstract type Ensemble end
 
-struct NVT{T} <: Ensemble
+struct NVT{U,T<:AbstractFloat} <: Ensemble
     # Target temperature
-    ktemp::T
+    ktemp::U
     # Damping constant
-    tau::Float64
+    tau::T
 end
 
 # For backward compatibility, allow construction with a constant value:
-NVT(ktemp::Float64, tau::Float64) = NVT(step -> ktemp, tau)
+NVT(ktemp::T, tau::T) where {T<:AbstractFloat} = NVT(step -> ktemp, tau)
 
-struct Brownian <: Ensemble
+struct Brownian{T<:AbstractFloat} <: Ensemble
     # Target temperature
-    ktemp::Float64
+    ktemp::T
 end
 
 struct NVE <: Ensemble end
 
-mutable struct EnergyAndForces{T}
-    energy::Float64
-    virial::Float64
+mutable struct EnergyAndForces{T,U<:AbstractFloat}
+    energy::U
+    virial::U
     forces::T
 end

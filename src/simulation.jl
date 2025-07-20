@@ -85,10 +85,6 @@ function run_simulation!(
         local current_snapshot_index = 1
     end
 
-    function pairwise_eval(x, y, i, j, d2, output)
-        return energy_and_forces!(x, y, i, j, d2, diameters, output, potential)
-    end
-
     for step in 0:(total_steps - 1)
         # Perform integration
         integrate_half!(
@@ -101,7 +97,11 @@ function run_simulation!(
             unitcell_inv,
         )
         reset_output!(system.energy_and_forces)
-        CellListMap.map_pairwise!(pairwise_eval, system)
+        CellListMap.map_pairwise!(
+            (x, y, i, j, d2, output) ->
+                energy_and_forces!(x, y, i, j, d2, diameters, output, potential),
+            system,
+        )
         integrate_second_half!(velocities, system.energy_and_forces.forces, params.dt)
 
         # Apply ensemble-specific logic

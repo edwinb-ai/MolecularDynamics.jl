@@ -6,12 +6,10 @@ end
 function reset_output!(output::EnergyAndForces)
     output.energy = 0.0
     output.virial = 0.0
-    # dim = size(output.forces[1])[1]
 
-    # for i in eachindex(output.forces)
-    #     output.forces[i] = zeros(StaticArrays.SVector{dim})
-    # end
-    fill!(output.forces, zeros(eltype(output.forces)))
+    @inbounds for f in output.forces
+        fill!(f, zero(Float64))
+    end
 
     return output
 end
@@ -34,8 +32,8 @@ function energy_and_forces!(
     sumies = @. fij * r / d
     output.virial += dot(sumies, r)
     output.energy += uij
-    output.forces[i] = @. output.forces[i] + sumies
-    output.forces[j] = @. output.forces[j] - sumies
+    output.forces[i] .+= sumies
+    output.forces[j] .-= sumies
 
     return output
 end

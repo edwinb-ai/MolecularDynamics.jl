@@ -8,12 +8,12 @@ Velocity Verlet first half-step using generic unitcell.
 function integrate_half!(positions, images, velocities, forces, dt, unitcell, unitcell_inv)
     @threads for i in eachindex(positions, forces, velocities)
         @inbounds begin
-            f = forces[i]
-            x = positions[i]
-            v = velocities[i]
-            velocities[i] = @. v + (f * dt / 2.0)
-            positions[i] = @. x + (velocities[i] * dt)
-            positions[i] = wrap_to_box!(positions[i], images[i], unitcell, unitcell_inv)
+            # f = forces[i]
+            # x = positions[i]
+            # v = velocities[i]
+            velocities[i] .+= forces[i] * dt / 2.0
+            positions[i] .+= velocities[i] * dt
+            positions[i] = wrap_to_box(positions[i], images[i], unitcell, unitcell_inv)
         end
     end
 
@@ -28,9 +28,9 @@ Velocity Verlet second half-step.
 function integrate_second_half!(velocities, forces, dt)
     @threads for i in eachindex(velocities, forces)
         @inbounds begin
-            v = velocities[i]
-            f = forces[i]
-            velocities[i] = @. v + (f * dt / 2.0)
+            # v = velocities[i]
+            # f = forces[i]
+            velocities[i] .+= forces[i] * dt / 2.0
         end
     end
 

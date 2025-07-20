@@ -1,17 +1,17 @@
 """
-    to_unitcell(box, dimension) -> SMatrix
+    to_unitcell(box, dimension) -> MMatrix
 
-Convert box to a StaticArray SMatrix of size (dimension, dimension).
+Convert box to a StaticArray MMatrix of size (dimension, dimension).
 Accepts a scalar (creates cubic), vector (diagonal), or matrix (full).
 """
 function to_unitcell(box, dimension)
     if isa(box, Number)
-        return box * SMatrix{dimension,dimension,Float64}(I)
+        return box * MMatrix{dimension,dimension,Float64}(I)
     elseif isa(box, AbstractVector)
-        return SMatrix{dimension,dimension,Float64}(Diagonal(box))
+        return MMatrix{dimension,dimension,Float64}(Diagonal(box))
     elseif isa(box, AbstractMatrix)
         # Extract upper-left dimension x dimension in case it's bigger
-        return SMatrix{dimension,dimension,Float64}(box[1:dimension, 1:dimension])
+        return MMatrix{dimension,dimension,Float64}(box[1:dimension, 1:dimension])
     else
         error("Cannot interpret box/unitcell of type $(typeof(box))")
     end
@@ -22,7 +22,7 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
     mins = zeros(dimension)
     maxs = diag(unitcell)
     coordinates = [
-        SVector{dimension,Float64}(rand(rng, Float64, dimension) .* (maxs .- mins) .+ mins)
+        MVector{dimension,Float64}(rand(rng, Float64, dimension) .* (maxs .- mins) .+ mins)
         for _ in 1:npart
     ]
     pack_monoatomic!(coordinates, maxs, tol; parallel=true, iprint=100)
@@ -40,7 +40,7 @@ function initialize_velocities(ktemp, rng, n_particles, dimension)
     fs = sqrt(ktemp / (sum_v2 / ((n_particles - 1) * dimension)))
     # 5) apply in place
     V .*= fs
-    # 6) if you still need SVectors
+    # 6) if you still need MVectors
     velocities = [StaticArrays.MVector{dimension,Float64}(V[:, i]) for i in 1:n_particles]
 
     return velocities
@@ -92,11 +92,14 @@ function initialize_simulation(
         diameters = ones(n_particles)
     end
 
+    forces = similar(positions)
+    forces .= zero.(positions)
+    energy_and_forces = EnergyAndForces(zero(cutoff), zero(cutoff), forces)
     system = CellListMap.ParticleSystem(;
         xpositions=positions,
         unitcell=unitcell,
         cutoff=cutoff,
-        output=EnergyAndForces(0.0, 0.0, similar(positions)),
+        output=energy_and_forces,
         output_name=:energy_and_forces,
         parallel=true,
     )
@@ -129,22 +132,11 @@ function initialize_state(
         diameters=diameters,
     )
 
-    for i in eachindex(system.energy_and_forces.forces)
-        system.energy_and_forces.forces[i] = zeros(SVector{dimension})
-    end
-    reset_output!(system.energy_and_forces)
-
     images = [zeros(MVector{dimension,Int32}) for _ in eachindex(system.xpositions)]
+    empty_velocities = Vector{MVector{dimension,Float64}}()
 
     state = SimulationState(
-        system,
-        diameters,
-        rng,
-        unitcell,
-        Vector{SVector{dimension,Float64}}(),
-        images,
-        dimension,
-        nf,
+        system, diameters, rng, unitcell, empty_velocities, images, dimension, nf
     )
 
     # Write initial configuration
