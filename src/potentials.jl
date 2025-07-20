@@ -159,8 +159,8 @@ Returns a tuple `(energy, force)`.
 """
 function evaluate(pot::LennardJones, r::Float64, sigma1::Float64, sigma2::Float64)
     # ! FIXME: Mixing rules cannot be assumed for the user
-    σ = (sigma1 + sigma2) / 2.0
-    return lj_unshifted(r, pot.epsilon, σ, pot.r_cut)
+    # σ = (sigma1 + sigma2) / 2.0
+    return lj_unshifted(r, pot.epsilon, sigma1, pot.r_cut)
 end
 
 """

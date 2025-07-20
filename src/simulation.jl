@@ -48,7 +48,6 @@ function run_simulation!(
     thermo_name::String="thermo.txt",
     compress::Bool=false,
     log_times::Bool=false,
-    neighborlist_frequency::Int=25,
 )
     # Remove the files if they existed, and return the files handles
     (trajectory_file, thermo_file) = open_files(pathname, traj_name, thermo_name)
@@ -89,7 +88,6 @@ function run_simulation!(
     end
 
     # Allocate and cache thread-local buffers for the entire simulation
-    thread_buffers = init_thread_local_buffers(params.n_particles, dimension, eltype(particle_system.positions[1]))
     CellListMap.update!(neighbor_system, particle_system.positions)
     neighborlist = CellListMap.neighborlist!(neighbor_system)
 
@@ -109,7 +107,6 @@ function run_simulation!(
         # Periodically rebuild neighbor list
         CellListMap.update!(neighbor_system, particle_system.positions)
         neighborlist = CellListMap.neighborlist!(neighbor_system)
-
         # force/energy calculation with thread-local buffers
         reset_output!(energy_and_forces)
         energy_and_forces!(
@@ -118,7 +115,6 @@ function run_simulation!(
             energy_and_forces,
             potential,
             diameters,
-            thread_buffers,
         )
         integrate_second_half!(velocities, energy_and_forces.forces, params.dt)
 

@@ -18,15 +18,15 @@ mutable struct ParticleSystem{T,P,U}
     energy_forces::U
 end
 
-mutable struct SimulationState{T,W,M,F<:AbstractFloat,I<:Integer}
+mutable struct SimulationState{T,D,U,W,M,F<:AbstractFloat,I<:Integer}
     # This field contains the cell lists for the system itself
     system::T
     # The array that contains the diameters of the particles
-    diameters::Vector{Float64}
+    diameters::D
     # The RNG
     rng::AbstractRNG
     # The size of the simulation box
-    unitcell::AbstractMatrix{Float64}
+    unitcell::U
     # The container for the velocities
     velocities::W
     # The images for the particles

@@ -96,7 +96,7 @@ function initialize_simulation(
         x=positions,
         unitcell=unitcell,
         cutoff=cutoff,
-        parallel=true,
+        parallel=false,
     )
 
     return system, unitcell, diameters, positions
