@@ -16,3 +16,13 @@ function wrap_to_box(x, image, unitcell, unitcell_inv)
     return wrapped_x
 end
 
+@inline function minimum_image!(dx, unitcell, unitcell_inv)
+    # Convert to fractional coordinates (allocates a temporary vector)
+    frac = unitcell_inv * dx
+    # Shift to (-0.5, 0.5]
+    @. frac -= round(frac)
+    # Convert back to Cartesian and overwrite dx in place
+    dx[:] = unitcell * frac
+
+    return nothing
+end

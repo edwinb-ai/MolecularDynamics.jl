@@ -48,6 +48,7 @@ function run_simulation!(
     thermo_name::String="thermo.txt",
     compress::Bool=false,
     log_times::Bool=false,
+    neighbor_frequency::Int=5,
 )
     # Remove the files if they existed, and return the files handles
     (trajectory_file, thermo_file) = open_files(pathname, traj_name, thermo_name)
@@ -104,9 +105,11 @@ function run_simulation!(
             unitcell_inv,
         )
 
-        # Periodically rebuild neighbor list
         CellListMap.update!(neighbor_system, particle_system.positions)
-        neighborlist = CellListMap.neighborlist!(neighbor_system)
+        if step % neighbor_frequency == 0
+            # Periodically rebuild neighbor list
+            neighborlist = CellListMap.neighborlist!(neighbor_system)
+        end
         # force/energy calculation with thread-local buffers
         reset_output!(energy_and_forces)
         energy_and_forces!(
@@ -115,6 +118,8 @@ function run_simulation!(
             energy_and_forces,
             potential,
             diameters,
+            unitcell,
+            unitcell_inv,
         )
         integrate_second_half!(velocities, energy_and_forces.forces, params.dt)
 
@@ -132,8 +137,7 @@ function run_simulation!(
         if mod(step, frequency) == 0
             # Always add long-range corrections if needed
             total_energy =
-                energy_and_forces.energy +
-                energy_lrc(potential, params.n_particles, volume)
+                energy_and_forces.energy + energy_lrc(potential, params.n_particles, volume)
             # Make the energy per particle
             total_energy /= params.n_particles
             # We now compute the average temperature

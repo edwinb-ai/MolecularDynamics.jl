@@ -23,16 +23,17 @@ Computation using a neighbor list produced by CellListMap.neighborlist(x, y, cut
 - buffers: ThreadLocalBuffers, to be reused across time steps
 """
 function energy_and_forces!(
-    x, neighborlist, output, potential, diameters
+    x, neighborlist, output, potential, diameters, unitcell, unitcell_inv
 )
-
-    @inbounds for k in eachindex(neighborlist)
-        (i, j, dist) = neighborlist[k]
+    @inbounds @simd for k in eachindex(neighborlist)
+        (i, j, _) = neighborlist[k]
         xi = x[i]
         xj = x[j]
         σ1 = diameters[i]
         σ2 = diameters[j]
-        rvec = xj - xi
+        rvec = xi - xj
+        minimum_image!(rvec, unitcell, unitcell_inv)
+        dist = norm(rvec)
         (uij, fij) = evaluate(potential, dist, σ1, σ2)
         fij_vec = @. fij * rvec / dist
 

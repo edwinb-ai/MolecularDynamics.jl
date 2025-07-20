@@ -93,10 +93,7 @@ function initialize_simulation(
     end
 
     system = CellListMap.InPlaceNeighborList(;
-        x=positions,
-        unitcell=unitcell,
-        cutoff=cutoff,
-        parallel=false,
+        x=positions, unitcell=unitcell, cutoff=cutoff, parallel=false
     )
 
     return system, unitcell, diameters, positions
