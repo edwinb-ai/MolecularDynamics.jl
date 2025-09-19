@@ -2,6 +2,8 @@
 *.txt
 *.xyz*
 
+.DS_Store/
+
 # Testing files/directories
 testing/
 
