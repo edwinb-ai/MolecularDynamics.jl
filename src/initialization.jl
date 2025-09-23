@@ -22,7 +22,7 @@ function initialize_random(unitcell, npart, rng, dimension; tol=1.0)
     mins = zeros(dimension)
     maxs = diag(unitcell)
     coordinates = [
-        MVector{dimension,Float64}(rand(rng, Float64, dimension) .* (maxs .- mins) .+ mins)
+        SVector{dimension,Float64}(rand(rng, Float64, dimension) .* (maxs .- mins) .+ mins)
         for _ in 1:npart
     ]
     pack_monoatomic!(coordinates, maxs, tol; parallel=true, iprint=100)
@@ -89,6 +89,8 @@ function initialize_simulation(
         boxl = (n_particles / params.ρ)^(1.0 / dimension)
         unitcell = to_unitcell(boxl, dimension)
         positions = initialize_random(unitcell, n_particles, rng, dimension)
+        # Change to MVectors after packing
+        positions = [SVector(v) for v in positions]
         diameters = ones(n_particles)
     end
 
