@@ -125,7 +125,7 @@ function fire_minimize!(
 
     reset_output!(system.energy_and_forces)
     CellListMap.map_pairwise!(pairwise_eval, system)
-    forces = system.energy_and_forces.EnergyAndForces.forces
+    forces = system.energy_and_forces.forces
     F_norm = sqrt(sum(norm(f)^2 for f in forces))
     F_norm /= sqrt(ndof)
 
