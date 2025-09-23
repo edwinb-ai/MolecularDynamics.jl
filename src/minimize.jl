@@ -56,7 +56,7 @@ function fire_minimize!(
     steps_since_neg = 0
     dt = dt_initial
     # The array that holds the information of the velocities
-    v = [zeros(StaticArrays.SVector{dimension,Float64}) for _ in 1:N]
+    v = [zeros(StaticArrays.MVector{dimension,Float64}) for _ in 1:N]
     # Use a variable to check convergence
     convergence = false
     # Degrees of freedom
@@ -87,7 +87,7 @@ function fire_minimize!(
         end
 
         for i in eachindex(v)
-            v[i] = @. v[i] + dt * forces[i]
+            @. v[i] += dt * forces[i]
         end
 
         P = sum(dot(v[i], forces[i]) for i in eachindex(v))
@@ -109,15 +109,15 @@ function fire_minimize!(
             end
         else
             dt = max(dt * f_dec, dt_initial)
-            fill!(v, zeros(StaticArrays.SVector{dimension,Float64}))
+            fill!(v, zeros(StaticArrays.MVector{dimension,Float64}))
             α = alpha0
             steps_since_neg = 0
         end
 
         for i in eachindex(system.xpositions)
-            x = system.xpositions[i]
-            system.xpositions[i] = @. x + dt * v[i]
-            system.xpositions[i] = wrap_to_box!(
+            # x = system.xpositions[i]
+            @. system.xpositions[i] += dt * v[i]
+            system.xpositions[i] = wrap_to_box(
                 system.xpositions[i], images[i], unitcell, unitcell_inv
             )
         end
