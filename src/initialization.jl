@@ -90,7 +90,7 @@ function initialize_simulation(
         unitcell = to_unitcell(boxl, dimension)
         positions = initialize_random(unitcell, n_particles, rng, dimension)
         # Change to MVectors after packing
-        positions = [SVector(v) for v in positions]
+        positions = [MVector(v) for v in positions]
         diameters = ones(n_particles)
     end
 
