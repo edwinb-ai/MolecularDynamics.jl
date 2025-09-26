@@ -58,3 +58,16 @@ function (ramp::ExponentialRamp)(step::Int)
     α = log(ramp.T_final / ramp.T_initial)
     return ramp.T_initial * exp(α * progress)
 end
+
+"""
+    initial_temperature_for_velocities(ktemp)
+
+Returns the initial temperature for velocities based on the provided `ktemp`.
+"""
+function initial_temperature_for_velocities(ktemp)
+    if hasproperty(ktemp, :T_initial) && hasproperty(ktemp, :T_final)
+        return max(ktemp.T_initial, ktemp.T_final)
+    else
+        return ktemp
+    end
+end
