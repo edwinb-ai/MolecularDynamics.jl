@@ -11,18 +11,27 @@ struct LinearRamp
 end
 
 function (ramp::LinearRamp)(step::Int)
-    # Clamp step to valid range
-    step = clamp(step, 1, ramp.n_steps)
-    # Linear interpolation between T_initial and T_final
-    return ramp.T_initial +
-           (ramp.T_final - ramp.T_initial) * (step - 1) / (ramp.n_steps - 1)
+    # Ensure we handle the post-ramp period correctly
+    if step >= ramp.n_steps
+        return ramp.T_final
+    end
+    
+    # Clamp step to valid range [0, n_steps-1] for 0-indexed steps
+    step = clamp(step, 0, ramp.n_steps - 1)
+    
+    # Linear interpolation - adjusted for 0-indexed steps
+    if ramp.n_steps == 1
+        return ramp.T_final
+    end
+    
+    progress = step / (ramp.n_steps - 1)
+    return ramp.T_initial + (ramp.T_final - ramp.T_initial) * progress
 end
 
 """
     ExponentialRamp(T_initial, T_final, n_steps)
 
 A callable struct representing an exponential temperature ramp from `T_initial` to `T_final` over `n_steps` steps.
-The temperature decreases (or increases) exponentially each step.
 """
 struct ExponentialRamp
     T_initial::Float64
@@ -31,25 +40,21 @@ struct ExponentialRamp
 end
 
 function (ramp::ExponentialRamp)(step::Int)
-    # Clamp step to valid range
-    step = clamp(step, 1, ramp.n_steps)
-    # Calculate exponential factor
+    # Ensure we handle the post-ramp period correctly
+    if step >= ramp.n_steps
+        return ramp.T_final
+    end
+    
+    # Clamp step to valid range [0, n_steps-1] for 0-indexed steps
+    step = clamp(step, 0, ramp.n_steps - 1)
+    
+    # Handle edge cases
     if ramp.n_steps == 1 || ramp.T_initial == ramp.T_final
         return ramp.T_final
     end
-    α = log(ramp.T_final / ramp.T_initial) / (ramp.n_steps - 1)
-    return ramp.T_initial * exp(α * (step - 1))
-end
-
-"""
-    initial_temperature_for_velocities(ktemp)
-
-Returns the initial temperature for velocities based on the provided `ktemp`.
-"""
-function initial_temperature_for_velocities(ktemp)
-    if hasproperty(ktemp, :T_initial) && hasproperty(ktemp, :T_final)
-        return max(ktemp.T_initial, ktemp.T_final)
-    else
-        return ktemp
-    end
+    
+    # Calculate exponential factor - adjusted for 0-indexed steps
+    progress = step / (ramp.n_steps - 1)
+    α = log(ramp.T_final / ramp.T_initial)
+    return ramp.T_initial * exp(α * progress)
 end
