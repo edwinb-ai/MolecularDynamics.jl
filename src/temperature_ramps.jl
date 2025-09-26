@@ -11,20 +11,20 @@ struct LinearRamp
 end
 
 function (ramp::LinearRamp)(step::Int)
-    # Ensure we handle the post-ramp period correctly
-    if step >= ramp.n_steps
+    # Handle the post-ramp period correctly - return exact final temperature
+    if step > ramp.n_steps
         return ramp.T_final
     end
     
-    # Clamp step to valid range [0, n_steps-1] for 0-indexed steps
-    step = clamp(step, 0, ramp.n_steps - 1)
+    # Clamp step to valid range [1, n_steps] for 1-indexed steps (as called from simulation)
+    step = clamp(step, 1, ramp.n_steps)
     
-    # Linear interpolation - adjusted for 0-indexed steps
+    # Linear interpolation - adjusted for 1-indexed steps
     if ramp.n_steps == 1
         return ramp.T_final
     end
     
-    progress = step / (ramp.n_steps - 1)
+    progress = (step - 1) / (ramp.n_steps - 1)
     return ramp.T_initial + (ramp.T_final - ramp.T_initial) * progress
 end
 
@@ -40,21 +40,21 @@ struct ExponentialRamp
 end
 
 function (ramp::ExponentialRamp)(step::Int)
-    # Ensure we handle the post-ramp period correctly
-    if step >= ramp.n_steps
+    # Handle the post-ramp period correctly - return exact final temperature
+    if step > ramp.n_steps
         return ramp.T_final
     end
     
-    # Clamp step to valid range [0, n_steps-1] for 0-indexed steps
-    step = clamp(step, 0, ramp.n_steps - 1)
+    # Clamp step to valid range [1, n_steps] for 1-indexed steps (as called from simulation)
+    step = clamp(step, 1, ramp.n_steps)
     
     # Handle edge cases
     if ramp.n_steps == 1 || ramp.T_initial == ramp.T_final
         return ramp.T_final
     end
     
-    # Calculate exponential factor - adjusted for 0-indexed steps
-    progress = step / (ramp.n_steps - 1)
+    # Calculate exponential factor - adjusted for 1-indexed steps
+    progress = (step - 1) / (ramp.n_steps - 1)
     α = log(ramp.T_final / ramp.T_initial)
     return ramp.T_initial * exp(α * progress)
 end
