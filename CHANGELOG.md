@@ -18,9 +18,22 @@ versioning; while the version is below 1.0, a minor version (0.x) may break the 
   `initialize_state` rejects a cutoff shorter than `r_cut`.
 - `examples/vibrational_modes.jl` for the 2D core-softened potential.
 
+### Deprecated
+
+- `LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)`: use the equivalent
+  `Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut, tail_correction); r_on, r_cut,
+  switch=:xplor)`, or the default quintic switch, which also keeps the second derivative
+  continuous. It still works, with a deprecation warning.
+
+### Fixed
+
+- The `LennardJones` tail corrections were missing the factor `ε σ³`, so they were only
+  right for `epsilon = sigma = 1`.
+
 ### Changed
 
 - The built-in potentials accept any `r::Real` in `evaluate`.
+- `Smoothed` applies the tail corrections of the wrapped potential, if it has them.
 - New dependencies: ForwardDiff, KrylovKit and SparseArrays.
 
 ## [0.8.2] - 2026-10-01

@@ -26,8 +26,11 @@ end
 end
 
 @testset "NVE energy and momentum conservation: $name" for (name, pot) in (
-    ("XPLOR", LennardJonesXPLOR(1.0, 1.0, 2.2, 2.5, false)),
-    ("smoothed LJ", Smoothed(LennardJones(; r_cut=2.5); r_on=2.2, r_cut=2.5)),
+    (
+        "LJ, XPLOR switch",
+        Smoothed(LennardJones(; r_cut=2.5); r_on=2.2, r_cut=2.5, switch=:xplor),
+    ),
+    ("LJ, quintic switch", Smoothed(LennardJones(; r_cut=2.5); r_on=2.2, r_cut=2.5)),
 )
     # Smooth cutoffs, so the energy is conserved up to O(dt²) fluctuations
     (state, params, L) = lj_state(4; rho=0.8, jitter=0.1, potential=pot)

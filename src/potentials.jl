@@ -144,27 +144,27 @@ FastPow.@fastpow function lj_force_shifted(r, epsilon, sigma, r_cut, Vcut, Fcut)
 end
 
 """
-    ener_lrc(cutoff, density, sigma=1.0)
+    ener_lrc(cutoff, density, sigma=1.0, epsilon=1.0)
 
-Compute the standard long-range energy correction for Lennard-Jones with a sharp cutoff.
-Returns the *total* energy correction for the system.
+Standard long-range energy correction per particle for Lennard-Jones with a sharp cutoff,
+`(8π/3) ρ ε σ³ [(σ/rc)⁹/3 - (σ/rc)³]`.
 """
-FastPow.@fastpow function ener_lrc(cutoff, density, sigma=1.0)
+FastPow.@fastpow function ener_lrc(cutoff, density, sigma=1.0, epsilon=1.0)
     uij = (((sigma / cutoff)^9) / 3.0) - ((sigma / cutoff)^3)
-    uij *= 8.0 * pi * density / 3.0
+    uij *= 8.0 * pi * density * epsilon * sigma^3 / 3.0
     return uij
 end
 
 """
-    pressure_lrc(cutoff, density, sigma=1.0)
+    pressure_lrc(cutoff, density, sigma=1.0, epsilon=1.0)
 
-Compute the standard long-range pressure correction for Lennard-Jones with a sharp cutoff.
-Returns the *total* pressure correction for the system.
+Standard long-range pressure correction for Lennard-Jones with a sharp cutoff,
+`(16π/3) ρ² ε σ³ [2(σ/rc)⁹/3 - (σ/rc)³]`.
 """
-FastPow.@fastpow function pressure_lrc(cutoff, density, sigma=1.0)
+FastPow.@fastpow function pressure_lrc(cutoff, density, sigma=1.0, epsilon=1.0)
     sr3 = (sigma / cutoff)^3
     result = (2.0 * sr3^3 / 3.0) - sr3
-    result *= 16.0 * pi * density^2 / 3.0
+    result *= 16.0 * pi * density^2 * epsilon * sigma^3 / 3.0
     return result
 end
 
@@ -178,7 +178,7 @@ otherwise returns 0.0.
     # By convention, use energy shift for plain and energy-shifted, and LRC if requested.
     # (Add a field if you want to toggle LRC on/off)
     ρ = N / V
-    return pot.tail_correction ? ener_lrc(pot.r_cut, ρ, pot.sigma) * N : 0.0
+    return pot.tail_correction ? ener_lrc(pot.r_cut, ρ, pot.sigma, pot.epsilon) * N : 0.0
 end
 
 """
@@ -189,7 +189,7 @@ otherwise returns 0.0.
 """
 @inline function pressure_lrc(pot::LennardJones, N, V)
     ρ = N / V
-    return pot.tail_correction ? pressure_lrc(pot.r_cut, ρ, pot.sigma) : 0.0
+    return pot.tail_correction ? pressure_lrc(pot.r_cut, ρ, pot.sigma, pot.epsilon) : 0.0
 end
 
 """
@@ -242,7 +242,12 @@ Lennard-Jones evaluation from `r2`, equivalent to `evaluate` and `sqrt`-free unl
 end
 
 """
-    struct LennardJonesXPLOR
+    LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)
+
+!!! warning "Deprecated"
+    Use the equivalent
+    `Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut, tail_correction); r_on, r_cut, switch=:xplor)`,
+    or the default quintic switch, which also keeps the second derivative continuous.
 
 Lennard-Jones potential with XPLOR smooth cutoff and optional long-range corrections.
 - `ϵ`: Well depth parameter.
@@ -257,6 +262,16 @@ struct LennardJonesXPLOR <: Potential
     r_on::Float64
     r_cut::Float64
     tail_correction::Bool
+
+    function LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)
+        Base.depwarn(
+            "`LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)` is deprecated, use " *
+            "`Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut=r_cut, " *
+            "tail_correction=tail_correction); r_on=r_on, r_cut=r_cut, switch=:xplor)`.",
+            :LennardJonesXPLOR,
+        )
+        return new(ϵ, σ, r_on, r_cut, tail_correction)
+    end
 end
 
 """
@@ -283,17 +298,15 @@ function xplor_switch(r, r_on, r_cut)
 end
 
 """
-    lj_xplor(r, lj::LennardJonesXPLOR)
+    lj_xplor(r, ϵ, σ, r_on, r_cut) -> (energy, force)
 
-Compute the Lennard-Jones XPLOR-shifted potential and force for distance `r`.
-Returns a tuple `(energy, force)`.
+Lennard-Jones energy and force with the XPLOR switch between `r_on` and `r_cut`.
 """
-FastPow.@fastpow function lj_xplor(r, lj::LennardJonesXPLOR)
-    if r >= lj.r_cut
+FastPow.@fastpow function lj_xplor(r, ϵ, σ, r_on, r_cut)
+    if r >= r_cut
         return 0.0, 0.0
     end
 
-    σ, ϵ = lj.σ, lj.ϵ
     sr = σ / r
     sr2 = sr^2
     sr6 = sr2^3
@@ -302,12 +315,14 @@ FastPow.@fastpow function lj_xplor(r, lj::LennardJonesXPLOR)
     V = 4.0 * ϵ * (sr12 - sr6)
     F = 24.0 * ϵ * (2.0 * sr12 - sr6) / r
 
-    S, dS = xplor_switch(r, lj.r_on, lj.r_cut)
+    S, dS = xplor_switch(r, r_on, r_cut)
     # The force is: -d/dr [V(r) * S(r)] = S(r) * F(r) - V(r) * dS/dr
     force = S * F - V * dS
 
     return V * S, force
 end
+
+lj_xplor(r, lj::LennardJonesXPLOR) = lj_xplor(r, lj.ϵ, lj.σ, lj.r_on, lj.r_cut)
 
 """
     evaluate(pot::LennardJonesXPLOR, r, sigma1, sigma2)
@@ -318,8 +333,7 @@ Returns a tuple `(energy, force)`.
 function evaluate(pot::LennardJonesXPLOR, r::Real, sigma1::Real, sigma2::Real)
     # Use arithmetic mean for cross-interactions (standard Lorentz-Berthelot)
     σ = (sigma1 + sigma2) / 2.0
-    scaled_pot = LennardJonesXPLOR(pot.ϵ, σ, pot.r_on, pot.r_cut, pot.tail_correction)
-    return lj_xplor(r, scaled_pot)
+    return lj_xplor(r, pot.ϵ, σ, pot.r_on, pot.r_cut)
 end
 
 function evaluate(pot::LennardJonesXPLOR, r::Real; sigma1=pot.σ, sigma2=pot.σ)

@@ -10,8 +10,8 @@ struct QuinticSwitch end
 """
     XPLORSwitch
 
-The XPLOR (CHARMM) switch, as in [`LennardJonesXPLOR`](@ref). Energy and force stay
-continuous, but the second derivative jumps at `r_on` and `r_cut`.
+The XPLOR (CHARMM) switch. Energy and force stay continuous, but the second derivative
+jumps at `r_on` and `r_cut`.
 """
 struct XPLORSwitch end
 
@@ -39,8 +39,9 @@ keeps the energy, force and second derivative continuous, as the Hessian needs;
 `switch=:xplor` uses the XPLOR switch, whose second derivative jumps at both ends.
 
 Distances are absolute. The `cutoff` given to `initialize_state` must be at least `r_cut`,
-and `potential` itself must not be cut off before `r_cut`. Long-range tail corrections of
-the wrapped potential are not applied.
+and `potential` itself must not be cut off before `r_cut`. If the wrapped potential has
+long-range tail corrections they are applied unchanged, ignoring the effect of the switch
+(as `LennardJonesXPLOR` did).
 
 ```julia
 params = Parameters(density, n_particles, dt, Smoothed(MyPotential(); r_on=1.8, r_cut=2.0))
@@ -97,6 +98,9 @@ end
     (S, dS) = switch_value(pot.switch, r, pot.r_on, pot.r_cut)
     return u * S, f_over_r * S - u * dS / r
 end
+
+energy_lrc(pot::Smoothed, N, V) = energy_lrc(pot.potential, N, V)
+pressure_lrc(pot::Smoothed, N, V) = pressure_lrc(pot.potential, N, V)
 
 """
     check_cutoff(potential, cutoff)

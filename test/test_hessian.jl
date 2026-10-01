@@ -88,7 +88,7 @@ evaluate(::WrongForce, r::Real, s1::Real, s2::Real) = (exp(-r^2), 4r * exp(-r^2)
             "3D XPLOR",
             jittered,
             SMatrix{3,3}(L * I(3)),
-            LennardJonesXPLOR(1.0, 1.0, 2.0, 2.5, false),
+            Smoothed(LennardJones(; r_cut=2.5); r_on=2.0, r_cut=2.5, switch=:xplor),
             2.5,
             ones(32),
         ),

@@ -56,14 +56,6 @@ end
         end
     end
 
-    @testset "XPLOR switch matches LennardJonesXPLOR" begin
-        smoothed = Smoothed(LennardJones(; r_cut=2.5); r_on=2.0, r_cut=2.5, switch=:xplor)
-        reference = LennardJonesXPLOR(1.0, 1.0, 2.0, 2.5, false)
-        for r in 0.9:0.05:2.6
-            @test all(evaluate(smoothed, r, 1.0, 1.0) .≈ evaluate(reference, r, 1.0, 1.0))
-        end
-    end
-
     @testset "argument checks" begin
         @test_throws ArgumentError Smoothed(Gaussian(); r_on=2.0, r_cut=1.8)
         @test_throws ArgumentError Smoothed(Gaussian(); r_on=1.8, r_cut=2.0, switch=:cubic)
@@ -82,8 +74,11 @@ end
                 diameters=ones(4),
             )
         end
-        # Tail corrections of the wrapped potential do not apply
-        pot = Smoothed(LennardJones(; tail_correction=true); r_on=2.2, r_cut=2.5)
-        @test MD.energy_lrc(pot, 100, 125.0) == 0.0
+        # Tail corrections are those of the wrapped potential
+        lj = LennardJones(; tail_correction=true)
+        pot = Smoothed(lj; r_on=2.2, r_cut=2.5)
+        @test MD.energy_lrc(pot, 100, 125.0) == MD.energy_lrc(lj, 100, 125.0) != 0.0
+        @test MD.pressure_lrc(pot, 100, 125.0) == MD.pressure_lrc(lj, 100, 125.0) != 0.0
+        @test MD.energy_lrc(Smoothed(Gaussian(); r_on=1.8, r_cut=2.0), 100, 125.0) == 0.0
     end
 end

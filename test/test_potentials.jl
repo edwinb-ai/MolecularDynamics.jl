@@ -20,8 +20,8 @@ end
             0.9:0.1:2.4,
         ),
         (
-            "LennardJonesXPLOR",
-            LennardJonesXPLOR(1.0, 1.0, 2.0, 2.5, false),
+            "LennardJones with XPLOR switch",
+            Smoothed(LennardJones(; r_cut=2.5); r_on=2.0, r_cut=2.5, switch=:xplor),
             [(1.0, 1.0), (0.9, 1.2)],
             0.9:0.05:2.45,
         ),
@@ -81,17 +81,20 @@ end
         @test (shifted.V_cut, shifted.F_cut) == MD.lj_cut_values(1.0, 1.0, rc)
     end
 
-    @testset "XPLOR switching" begin
-        pot = LennardJonesXPLOR(1.0, 1.0, 2.0, 2.5, false)
-        lj = LennardJones(; r_cut=2.5)
-        # Unchanged below r_on, smoothly zero at r_cut
-        @test all(
-            evaluate(pot, r, 1.0, 1.0) == evaluate(lj, r, 1.0, 1.0) for r in 0.9:0.1:1.9
+    @testset "LennardJonesXPLOR (deprecated)" begin
+        pot = @test_deprecated LennardJonesXPLOR(1.3, 1.1, 2.0, 2.5, true)
+        # The replacement suggested by the deprecation is the same potential
+        replacement = Smoothed(
+            LennardJones(; epsilon=1.3, sigma=1.1, r_cut=2.5, tail_correction=true);
+            r_on=2.0,
+            r_cut=2.5,
+            switch=:xplor,
         )
-        (u, f) = evaluate(pot, 2.5 - 1e-9, 1.0, 1.0)
-        @test abs(u) < 1e-12
-        @test abs(f) < 1e-6
-        @test evaluate(pot, 2.6, 1.0, 1.0) == (0.0, 0.0)
+        for (s1, s2) in ((1.0, 1.0), (0.9, 1.2)), r in 0.9:0.05:2.6
+            @test all(evaluate(pot, r, s1, s2) .≈ evaluate(replacement, r, s1, s2))
+        end
+        @test MD.energy_lrc(pot, 100, 125.0) ≈ MD.energy_lrc(replacement, 100, 125.0)
+        @test MD.pressure_lrc(pot, 100, 125.0) ≈ MD.pressure_lrc(replacement, 100, 125.0)
         # Keyword form kept for compatibility
         @test evaluate(pot, 1.5; sigma1=1.0, sigma2=1.0) == evaluate(pot, 1.5, 1.0, 1.0)
     end
@@ -119,6 +122,11 @@ end
         # Analytic remainder beyond r = 200
         integral += 4 * (200.0^-9 / 9 - 200.0^-3 / 3)
         @test MD.ener_lrc(rc, ρ) ≈ 2π * ρ * integral rtol = 1e-6
+        # Other ε and σ scale it as ε σ³ u(rc / σ)
+        @test MD.ener_lrc(rc, ρ, 1.1, 2.0) ≈ 2.0 * 1.1^3 * MD.ener_lrc(rc / 1.1, ρ)
+        @test MD.pressure_lrc(rc, ρ, 1.1, 2.0) ≈ 2.0 * 1.1^3 * MD.pressure_lrc(rc / 1.1, ρ)
+        scaled = LennardJones(; epsilon=2.0, sigma=1.1, r_cut=rc, tail_correction=true)
+        @test MD.energy_lrc(scaled, 100, 125.0) ≈ 100 * MD.ener_lrc(rc, 0.8, 1.1, 2.0)
         on = LennardJones(; r_cut=rc, tail_correction=true)
         off = LennardJones(; r_cut=rc)
         @test MD.energy_lrc(on, 100, 125.0) ≈ 100 * MD.ener_lrc(rc, 0.8)
