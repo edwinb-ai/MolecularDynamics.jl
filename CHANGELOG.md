@@ -3,7 +3,7 @@
 Notable changes between versions of MolecularDynamics.jl. Versions follow semantic
 versioning; while the version is below 1.0, a minor version (0.x) may break the API.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-01
 
 ### Upgrading from 0.8
 
