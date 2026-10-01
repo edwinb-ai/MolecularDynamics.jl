@@ -4,7 +4,6 @@ authors = ["edwinb-ai <e.a.bedollamontiel@uu.nl>"]
 version = "0.7"
 
 [deps]
-CellListMap = "69e1c6dd-3888-40e6-b3c8-31ac5f578864"
 CodecZstd = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -24,3 +23,10 @@ LinearAlgebra = "1.11.0"
 Printf = "1.11.0"
 Random = "1.11.0"
 Statistics = "1.11.1"
+
+[extras]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Logging", "Test"]

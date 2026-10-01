@@ -2,27 +2,42 @@
 const b_param = 1.0204081632653061
 const a_param = 134.5526623421209
 
+"""
+    PseudoHS()
+
+Pseudo hard-sphere potential: a (50, 49) Mie potential, cut and shifted at its minimum.
+"""
 struct PseudoHS{F<:Function} <: Potential
     potf::F
 end
 
 PseudoHS() = PseudoHS(pseudohs)
 
+"""
+    evaluate(pot::PseudoHS, r, sigma1, sigma2)
+
+Evaluate the pseudo hard-sphere potential with `σ = (sigma1 + sigma2) / 2`.
+"""
 function evaluate(pot::PseudoHS, r::Float64, sigma1::Float64, sigma2::Float64)
     sigma = (sigma1 + sigma2) / 2.0
     return pot.potf(r, sigma; lambda=50.0)
 end
 
+"""
+    pseudohs(rij, sigma; lambda=50.0) -> (energy, force)
+
+Pseudo hard-sphere energy and force, non-zero for `rij < b_param * sigma`.
+"""
 FastPow.@fastpow function pseudohs(rij, sigma; lambda=50.0)
     uij = 0.0
     fij = 0.0
 
-    if rij < b_param
+    if rij < b_param * sigma
         uij = a_param * ((sigma / rij)^lambda - (sigma / rij)^(lambda - 1.0))
         uij += 1.0
-        fij = lambda * (sigma / rij)^(lambda + 1.0)
-        fij -= (lambda - 1.0) * (sigma / rij)^lambda
-        fij *= a_param
+        fij = lambda * (sigma / rij)^lambda
+        fij -= (lambda - 1.0) * (sigma / rij)^(lambda - 1.0)
+        fij *= a_param / rij
     end
 
     return uij, fij
@@ -63,6 +78,11 @@ function LennardJones(;
     )
 end
 
+"""
+    lj_unshifted(r, epsilon, sigma, r_cut) -> (energy, force)
+
+Plain Lennard-Jones energy and force, truncated at `r_cut`.
+"""
 FastPow.@fastpow function lj_unshifted(r, epsilon, sigma, r_cut)
     if r >= r_cut
         return 0.0, 0.0
@@ -76,6 +96,11 @@ FastPow.@fastpow function lj_unshifted(r, epsilon, sigma, r_cut)
     return V, F
 end
 
+"""
+    lj_energy_shifted(r, epsilon, sigma, r_cut, Vcut) -> (energy, force)
+
+Lennard-Jones with the energy shifted so that it vanishes at `r_cut`.
+"""
 @inline function lj_energy_shifted(r, epsilon, sigma, r_cut, Vcut)
     if r >= r_cut
         return 0.0, 0.0
@@ -89,6 +114,11 @@ end
     return V, F
 end
 
+"""
+    lj_force_shifted(r, epsilon, sigma, r_cut, Vcut, Fcut) -> (energy, force)
+
+Lennard-Jones with energy and force shifted so that both vanish at `r_cut`.
+"""
 FastPow.@fastpow function lj_force_shifted(r, epsilon, sigma, r_cut, Vcut, Fcut)
     if r >= r_cut
         return 0.0, 0.0
@@ -152,15 +182,35 @@ otherwise returns 0.0.
 end
 
 """
-    evaluate(pot::LennardJones, r::Real; sigma1=pot.σ, sigma2=pot.σ)
+    evaluate(pot::LennardJones, r, sigma1, sigma2)
 
-Evaluate the Lennard-Jones potential for a given distance `r`, with optional individual sigmas.
+Evaluate the Lennard-Jones potential at distance `r`, with `σ = (sigma1 + sigma2) / 2`.
 Returns a tuple `(energy, force)`.
 """
 function evaluate(pot::LennardJones, r::Float64, sigma1::Float64, sigma2::Float64)
     # ! FIXME: Mixing rules cannot be assumed for the user
     σ = (sigma1 + sigma2) / 2.0
     return lj_unshifted(r, pot.epsilon, σ, pot.r_cut)
+end
+
+"""
+    evaluate_r2(pot::LennardJones, r2, sigma1, sigma2)
+
+`sqrt`-free Lennard-Jones evaluation, equivalent to `evaluate`. Returns `(energy, force / r)`.
+"""
+@inline function evaluate_r2(
+    pot::LennardJones, r2::Float64, sigma1::Float64, sigma2::Float64
+)
+    if r2 >= pot.r_cut^2
+        return 0.0, 0.0
+    end
+    σ = (sigma1 + sigma2) / 2.0
+    sr2 = σ * σ / r2
+    sr6 = sr2 * sr2 * sr2
+    sr12 = sr6 * sr6
+    V = 4.0 * pot.epsilon * (sr12 - sr6)
+    F_over_r = 24.0 * pot.epsilon * (2.0 * sr12 - sr6) / r2
+    return V, F_over_r
 end
 
 """
@@ -197,11 +247,7 @@ function xplor_switch(r, r_on, r_cut)
         S = num1 / denom
 
         # Derivative dS/dr
-        dnum1 =
-            -4.0 * r * (rc2 - r2) * (rc2 + 2.0 * r2 - 3.0 * ron2) +
-            2.0 * (rc2 - r2) * 2.0 * r * (rc2 + 2.0 * r2 - 3.0 * ron2) +
-            (rc2 - r2)^2 * 4.0 * r
-        dS = dnum1 / denom
+        dS = -12.0 * r * (rc2 - r2) * (r2 - ron2) / denom
         return S, dS
     else
         return 0.0, 0.0
@@ -229,23 +275,27 @@ FastPow.@fastpow function lj_xplor(r, lj::LennardJonesXPLOR)
     F = 24.0 * ϵ * (2.0 * sr12 - sr6) / r
 
     S, dS = xplor_switch(r, lj.r_on, lj.r_cut)
-    # The force is: d/dr [V(r) * S(r)] = S(r) * F(r) + V(r) * dS/dr
-    force = S * F + V * dS
+    # The force is: -d/dr [V(r) * S(r)] = S(r) * F(r) - V(r) * dS/dr
+    force = S * F - V * dS
 
     return V * S, force
 end
 
 """
-    evaluate(pot::LennardJonesXPLOR, r::Real; sigma1=pot.σ, sigma2=pot.σ)
+    evaluate(pot::LennardJonesXPLOR, r, sigma1, sigma2)
 
 Evaluate the Lennard-Jones XPLOR potential for a given distance `r`, with optional individual sigmas.
 Returns a tuple `(energy, force)`.
 """
-function evaluate(pot::LennardJonesXPLOR, r::Real; sigma1=pot.σ, sigma2=pot.σ)
+function evaluate(pot::LennardJonesXPLOR, r::Real, sigma1::Real, sigma2::Real)
     # Use arithmetic mean for cross-interactions (standard Lorentz-Berthelot)
     σ = (sigma1 + sigma2) / 2.0
     scaled_pot = LennardJonesXPLOR(pot.ϵ, σ, pot.r_on, pot.r_cut, pot.tail_correction)
     return lj_xplor(r, scaled_pot)
+end
+
+function evaluate(pot::LennardJonesXPLOR, r::Real; sigma1=pot.σ, sigma2=pot.σ)
+    return evaluate(pot, r, sigma1, sigma2)
 end
 
 """

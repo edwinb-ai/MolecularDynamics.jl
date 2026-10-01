@@ -1,3 +1,8 @@
+"""
+    sum_noises(nf, rng)
+
+Sum of `nf` squared standard normal numbers, sampled directly from its distribution.
+"""
 function sum_noises(nf, rng)
     result = 0.0
 
@@ -17,6 +22,12 @@ function sum_noises(nf, rng)
     return result
 end
 
+"""
+    bussi!(velocities, ktemp, nf, dt, τ, rng)
+
+Bussi-Donadio-Parrinello stochastic velocity rescaling towards temperature `ktemp`, with
+time constant `τ` and `nf` degrees of freedom.
+"""
 function bussi!(velocities, ktemp, nf, dt, τ, rng)
     dt_ratio = dt / τ
 
@@ -47,6 +58,11 @@ function bussi!(velocities, ktemp, nf, dt, τ, rng)
     return nothing
 end
 
+"""
+    compute_kinetic(velocities)
+
+Total kinetic energy, assuming unit masses.
+"""
 function compute_kinetic(velocities)
     kinetic_energy = 0.0
 
@@ -59,6 +75,11 @@ function compute_kinetic(velocities)
     return kinetic_energy
 end
 
+"""
+    compute_temperature(velocities, nf)
+
+Instantaneous temperature `2K / nf`.
+"""
 function compute_temperature(velocities, nf)
     kinetic_energy = compute_kinetic(velocities)
     temperature = 2.0 * kinetic_energy / nf

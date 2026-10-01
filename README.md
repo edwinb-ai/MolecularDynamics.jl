@@ -71,6 +71,10 @@ To add a user-defined interaction potential we have to overload the `evaluate` m
 a special sub-type of the `Potential` type. Here is a commented example script for a polydisperse
 mixture that reads in a configuration file, and sets up the interaction potential.
 
+Optionally, a potential can also overload `evaluate_r2(pot, r2, sigma1, sigma2)`, which
+receives the squared distance and returns the energy and the force divided by the distance.
+This avoids a square root and a division per pair; see `LennardJones` for an example.
+
 ```julia
 using MolecularDynamics
 using Printf: @sprintf
@@ -183,7 +187,8 @@ main()
 - Uses the Bussi-Donadio-Parrinello thermostat to control temperature.
 - Integrates particles' positions and velocities using velocity Verlet.
 - The Brownian dynamics integrator is a simple Euler-Murayama first order integrator. This is essentially the approach of the Ermak-McCammon algorithm. The only difference is that a uniform distribution with the same moments as a normal distribution is sampled; this is done for efficiency of the code.
-- Can handle very large systems thanks to the cell implementation of [CellListMap.jl](https://github.com/m3g/CellListMap.jl)
+- Forces are computed with a Verlet neighbor list built from cell lists, rebuilt only when a particle has moved more than half the skin (`skin` keyword of `initialize_state`, default `0.3`). It supports 2D and 3D, orthorhombic and triclinic boxes, and any box size relative to the cutoff.
+- Runs in parallel with Julia threads, e.g. `julia -t 8 script.jl`. On a Lennard-Jones melt it matches or beats LAMMPS on the same number of cores; see `benchmark/run.sh` to reproduce.
 - For now it can compute energy and pressure, but also outputs the trajectory of the simulation for post-processing.
 - The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included. However, generic user-defined interaction potentials can now be defined with the new interface.
   - Benchmarks fagainst LAMMPS and NIST results for the Lennard-Jones interaction potential are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
@@ -191,6 +196,13 @@ main()
 - Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd` after the full trajectory has been written.
     - It can also print the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties. However, the only format that support this is the LAMMPS format.
 - The configuration can now be minimized to a local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
+
+## Running the tests
+
+```shell
+julia --project -e 'using Pkg; Pkg.test()'
+julia --project -e 'using Pkg; Pkg.test(julia_args=["--threads=4"])'
+```
 
 ## TODO
 - Also, the configuration of the system is always at random and packed, which helps to start a random simulation. However, the user should be able to set their configuration as they want, and the code do the integration of the equations of motion.

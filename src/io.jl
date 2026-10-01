@@ -1,3 +1,8 @@
+"""
+    save_log_times_to_file(logs, logn, logbase, filename)
+
+Write the logarithmic snapshot steps to `filename`, one per line, after a metadata header.
+"""
 function save_log_times_to_file(
     logs::Vector{Int}, logn::Int, logbase::Float64, filename::String
 )
@@ -14,6 +19,12 @@ function save_log_times_to_file(
     return nothing
 end
 
+"""
+    generate_log_times(; max_iter=10000, logn=40, logbase=1.35) -> Vector{Int}
+
+Sorted, unique snapshot steps spaced as `logbase^i` within cycles of `logbase^logn` steps.
+Also saves them to `new-log-times.txt`.
+"""
 function generate_log_times(; max_iter::Int=10000, logn::Int=40, logbase::Float64=1.35)
     dtime = Int[]
     maxlog = floor(Int, logbase^logn)
@@ -70,10 +81,10 @@ function write_to_file(
 end
 
 """
-    unwrapped(pos, image, unitcell)
+    unwrapped(p, img, boxmat)
 
-Compute the unwrapped (absolute) position of a particle in periodic boundary conditions,
-given its position `pos`, image vector `image`, and the simulation box matrix `boxmat`.
+Unwrapped position of a particle from its wrapped position `p`, image counter `img` and
+the 3×3 box matrix `boxmat`. 2D inputs are embedded in 3D.
 """
 @inline function unwrapped(p, img, boxmat)
     if length(p) == 2
@@ -204,6 +215,11 @@ function read_file(filepath; dimension=3)
     return unitcell, positions, diameters
 end
 
+"""
+    compress_zstd(filepath)
+
+Compress `filepath` to `filepath.zst` and remove the original.
+"""
 function compress_zstd(filepath)
     # Attach the suffix to the original file
     output_file = filepath * ".zst"
@@ -222,6 +238,11 @@ function compress_zstd(filepath)
     return nothing
 end
 
+"""
+    open_files(pathname, traj_name, thermo_name) -> (trajectory_file, thermo_file)
+
+Paths of the output files inside `pathname`, removing previous versions of them.
+"""
 function open_files(pathname, traj_name, thermo_name)
     # Open files for trajectory and other things
     trajectory_file = joinpath(pathname, traj_name)

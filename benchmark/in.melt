@@ -1,0 +1,26 @@
+# LJ FCC -> liquid melt, NVT with CSVR (Bussi) thermostat
+# vars: ncell, nsteps, outdir
+units           lj
+atom_style      atomic
+lattice         fcc 0.8442
+region          box block 0 ${ncell} 0 ${ncell} 0 ${ncell}
+create_box      1 box
+create_atoms    1 box
+mass            1 1.0
+
+velocity        all create 2.0 87287 mom yes dist gaussian
+
+pair_style      lj/cut 2.5
+pair_coeff      1 1 1.0 1.0 2.5
+
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.005
+fix             1 all nve
+fix             2 all temp/csvr 2.0 2.0 0.5 4928459
+
+thermo_style    custom step pe temp press
+thermo          1000
+dump            1 all custom 1000 ${outdir}/traj.lammpstrj id type x y z xu yu zu
+run             ${nsteps}
