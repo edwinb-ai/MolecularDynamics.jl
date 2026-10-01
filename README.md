@@ -208,21 +208,9 @@ main()
     - The LAMMPS dumps include the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties.
 - The configuration can be minimized to a local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
 
-## Upgrading to 0.8
+## Changes between versions
 
-- `state.system` (the CellListMap particle system) has been replaced by `state.positions`,
-  `state.velocities`, `state.forces`, `state.energy` and `state.virial`. Reading
-  `state.system` still works but is deprecated.
-- Positions, velocities and forces are vectors of `SVector`s: update an element with
-  `x[i] = ...` instead of `x[i] .= ...`.
-- During a run positions are only wrapped into the box when the neighbor list is rebuilt;
-  they are wrapped again at the end of `run_simulation!` and `minimize!`, and
-  `wrapped_positions(state)` returns wrapped copies at any time.
-- `LennardJones(; shift=true)` and `LennardJones(; force_shift=true)` now shift the
-  potential (they were ignored before).
-- LAMMPS trajectories use the LAMMPS box format: orthogonal, restricted triclinic (correct
-  tilt factors and bounds), or general triclinic (`abc origin`) for boxes that are not
-  upper triangular.
+See [CHANGELOG.md](CHANGELOG.md), which also has the notes for upgrading between versions.
 
 ## Running the tests
 
