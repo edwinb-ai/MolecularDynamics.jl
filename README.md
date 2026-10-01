@@ -78,6 +78,13 @@ To add a user-defined interaction potential we have to overload the `evaluate` m
 a special sub-type of the `Potential` type. Here is a commented example script for a polydisperse
 mixture that reads in a configuration file, and sets up the interaction potential.
 
+Any potential can be switched off smoothly before its cutoff by wrapping it, e.g.
+`Parameters(density, n_particles, dt, Smoothed(Polydisperse(); r_on=1.8, r_cut=2.0))`.
+Between `r_on` and `r_cut` the energy is multiplied by a quintic switch that keeps the
+energy, force and second derivative continuous; `switch=:xplor` uses the XPLOR switch
+instead, which only keeps the energy and force continuous. The `cutoff` of
+`initialize_state` must be at least `r_cut`.
+
 Optionally, a potential can also overload `evaluate_r2(pot, r2, sigma1, sigma2)`, which
 receives the squared distance and returns the energy and the force divided by the distance.
 This avoids a square root and a division per pair; see `LennardJones` for an example.
@@ -207,6 +214,8 @@ H = hessian(state, params)              # sparse dN × dN matrix
 P = participation_ratio(modes, dimension)
 ```
 
+Discontinuities of the potential or its first two derivatives at the cutoff distort the
+low-frequency spectrum; wrapping the potential in `Smoothed` (see above) removes them.
 Masses are 1, frequencies are `sqrt` of the eigenvalues (negative for unstable directions),
 and the participation ratio is about 1 for extended modes and of order `1/N` for localized
 ones. See `examples/vibrational_modes.jl`.

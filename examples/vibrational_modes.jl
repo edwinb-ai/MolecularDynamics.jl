@@ -24,7 +24,10 @@ function main(
 )
     (density, ktemp, dt, dimension) = (0.94, 0.16, 0.01, 2)
     rng = Random.Xoshiro(2024)
-    params = Parameters(density, n_particles, dt, PseudoSS())
+    # Switch the potential off smoothly between 1.8 and 2.0, so that the energy, force and
+    # second derivative are continuous at the cutoff, as the low-frequency modes need
+    potential = Smoothed(PseudoSS(); r_on=1.8, r_cut=2.0)
+    params = Parameters(density, n_particles, dt, potential)
     pathname = mkpath(joinpath(@__DIR__, "modes_N=$(n_particles)"))
 
     state = initialize_state(

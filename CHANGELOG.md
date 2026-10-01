@@ -12,6 +12,10 @@ versioning; while the version is below 1.0, a minor version (0.x) may break the 
   potentials need no extra code beyond accepting `r::Real`.
 - `normal_modes(H)` (dense, all modes), `lowest_modes(H, k)` (shift-invert Lanczos, for
   large systems) and `participation_ratio(modes, dimension)`.
+- `Smoothed(potential; r_on, r_cut, switch=:quintic)` switches any potential off smoothly
+  between `r_on` and `r_cut`. The quintic switch keeps the energy, force and second
+  derivative continuous; `switch=:xplor` keeps only the energy and force continuous.
+  `initialize_state` rejects a cutoff shorter than `r_cut`.
 - `examples/vibrational_modes.jl` for the 2D core-softened potential.
 
 ### Changed

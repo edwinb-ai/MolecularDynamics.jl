@@ -4,6 +4,7 @@ using LinearAlgebra
 using Random
 using DelimitedFiles: readdlm
 using Logging: with_logger, NullLogger
+using ForwardDiff: ForwardDiff
 import MolecularDynamics: Potential, evaluate
 
 const MD = MolecularDynamics
@@ -15,6 +16,15 @@ evaluate(::Gaussian, r::Real, s1::Real, s2::Real) = (exp(-r^2), 2r * exp(-r^2))
 # Non-interacting particles
 struct Ideal <: Potential end
 evaluate(::Ideal, r::Real, s1::Real, s2::Real) = (0.0, 0.0)
+
+# Pair potential of the 2D quasicrystal forming system, written with `r::Real`
+struct CoreSoftened <: Potential end
+function evaluate(::CoreSoftened, r::Real, s1::Real, s2::Real)
+    (k, δ) = (10.0, 1.35)
+    u = (s1 / r)^14 + 0.5 - 0.5 * tanh(k * (r - δ))
+    f = 14 * (s1 / r)^14 / r + 0.5 * k * sech(k * (r - δ))^2
+    return u, f
+end
 
 "FCC lattice with `ncell^3` unit cells at number density `rho`; returns positions and box length."
 function fcc_positions(ncell, rho)

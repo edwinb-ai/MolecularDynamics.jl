@@ -137,6 +137,7 @@ function initialize_state(
     positions=nothing,
     diameters=nothing,
 )
+    check_cutoff(params.potential, cutoff)
     nf = dimension * (params.n_particles - 1.0)
     (positions, unitcell, diameters) = initialize_simulation(
         params,

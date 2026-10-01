@@ -18,6 +18,7 @@ using SparseArrays: sparse, SparseMatrixCSC
 include("types.jl")
 include("io.jl")
 include("potentials.jl")
+include("smoothing.jl")
 include("boundary.jl")
 include("neighborlist.jl")
 include("forces.jl")
@@ -30,7 +31,7 @@ include("temperature_ramps.jl")
 include("simulation.jl")
 
 export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!
-export PseudoHS, LennardJonesXPLOR, LennardJones
+export PseudoHS, LennardJonesXPLOR, LennardJones, Smoothed
 export LinearRamp, ExponentialRamp
 export minimize!
 export initial_temperature_for_velocities, initialize_velocities
