@@ -26,6 +26,46 @@
     end
 end
 
+@testset "Extended XYZ layout" begin
+    function written(unitcell, positions)
+        D = size(unitcell, 1)
+        path = joinpath(mktempdir(), "config.xyz")
+        n = length(positions)
+        MD.write_to_file(path, 3, unitcell, n, positions, ones(n), D; mode="w")
+        return readlines(path)
+    end
+    lattice(header) = parse.(Float64, split(match(r"Lattice=\"([^\"]+)\"", header)[1]))
+
+    # 2D is embedded in 3D: 9 lattice entries, three coordinates, no periodicity along z
+    lines = written(SMatrix{2,2}([8.0 2.0; 0.0 6.0]), [SVector(1.0, 2.0)])
+    @test lattice(lines[2]) == [8.0, 0.0, 0.0, 2.0, 6.0, 0.0, 0.0, 0.0, 1.0]
+    @test occursin("pos:R:3", lines[2])
+    @test occursin("pbc=\"T T F\"", lines[2])
+    @test parse.(Float64, split(lines[3]))[4:6] == [1.0, 2.0, 0.0]
+
+    lines = written(
+        SMatrix{3,3}([6.0 1.0 0.5; 0.0 5.0 0.7; 0.0 0.0 7.0]), [SVector(1.0, 2.0, 3.0)]
+    )
+    @test lattice(lines[2]) == [6.0, 0.0, 0.0, 1.0, 5.0, 0.0, 0.5, 0.7, 7.0]
+    @test occursin("pbc=\"T T T\"", lines[2])
+
+    # Files written before 0.8.1 stored 2D systems with a 2x2 lattice and two coordinates
+    path = joinpath(mktempdir(), "old.xyz")
+    write(
+        path,
+        """
+        2
+        Lattice="8.0 0.0 2.0 6.0" Properties=type:I:1:id:I:1:radius:R:1:pos:R:2 Time=5
+        1 1 0.500000 1.000000 2.000000
+        1 2   0.600000  3.500000 4.250000
+        """,
+    )
+    (uc, x, d) = MD.read_file(path; dimension=2)
+    @test uc == [8.0 2.0; 0.0 6.0]
+    @test x == [SVector(1.0, 2.0), SVector(3.5, 4.25)]
+    @test d == [1.0, 1.2]
+end
+
 @testset "Wrapped positions and LAMMPS output" begin
     (state, params, L) = lj_state(2; jitter=0.1)
     # Push particles across the box without rebuilding

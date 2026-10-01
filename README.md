@@ -6,10 +6,11 @@ ensemble.
 
 ### Example
 
-It can be used in as a module, here is a simple example script.
+It can be used as a module, here is a simple example script.
 
 ```julia
 using Printf
+using Random
 using MolecularDynamics
 
 function main()
@@ -20,8 +21,10 @@ function main()
     n_particles = 2^10
     println("Number of particles: $(n_particles)")
     dt = 0.001
-    # Instantiate a `Parameters` object to hold this information
-    params = Parameters(density, n_particles, dt)
+    dimension = 3
+    rng = Random.Xoshiro(1234)
+    # Instantiate a `Parameters` object to hold this information, here for pseudo hard spheres
+    params = Parameters(density, n_particles, dt, PseudoHS())
 
     # Create a directory to save all the files, this will be the root directory
     pathname = joinpath(
@@ -31,15 +34,17 @@ function main()
 
     # We create a thermostat, and the second argument is the damping
     thermostat = NVT(ktemp, 100.0 * dt)
-    # Define an array of diameters, a monodisperse system is one sigma
-    diameters = ones(n_particles)
-    # Here we initialize the state of the simulation
-    state = initialize_state(params, pathname, diameters; random_init=true)
+    # Random configuration of unit-diameter particles, packed to remove overlaps. The
+    # cutoff has to cover the range of the potential, which is about 1.02 diameters here.
+    state = initialize_state(
+        params, pathname; dimension=dimension, random_init=true, cutoff=1.1, rng=rng
+    )
     # Velocities have to be explicitly set
     init_temperature = initial_temperature_for_velocities(ktemp)
-    velocities = initialize_velocities(init_temperature, rng, params.n_particles, dimension)
-    state.velocities = velocities
-    
+    state.velocities = initialize_velocities(
+        init_temperature, rng, params.n_particles, dimension
+    )
+
     # We run the simulation for 1_000_000 time steps, and we print data
     # every 100_000 time steps
     # The `compress=true` enables compression of the trajectory files using `zstd`
@@ -53,7 +58,7 @@ function main()
         1_000_000,
         100_000,
         pathname;
-        traj_name="production.xyz",
+        traj_name="production.lammpstrj",
         thermo_name="production_thermo.txt",
         log_times=false,
         compress=true,
@@ -64,6 +69,8 @@ end
 
 main()
 ```
+
+Run it with several threads to use more cores, e.g. `julia -t 8 script.jl`.
 
 ## How to add different potentials
 
@@ -78,6 +85,7 @@ This avoids a square root and a division per pair; see `LennardJones` for an exa
 ```julia
 using MolecularDynamics
 using Printf: @sprintf
+using Random
 using FastPow: @fastpow
 # IMPORTANT: always `import` to overload
 import MolecularDynamics: Potential, evaluate
@@ -125,22 +133,16 @@ end
 # `Polydisperse`, assign the `poly_potential` function to it.
 Polydisperse() = Polydisperse(poly_potential)
 
-""" This function will evaluate the potential, but note that the first four arguments have
-to be exactly these ones: `pot` the type of the potential, always has to be the same
-type as we defined earlier. Then `r` is the distance, which will be computed by the
-simulation code. And we always pass two diameters, for the distance between the two particles
-that we are dealing with, and the names have to be exactly `sigma1` and `sigma2`.
-The keyword arguments can be anything you need for the potential to work properly, in this case
-I need the cutoff radius and the value of the non-additivity of the particles.
+""" This function will evaluate the potential. The simulation code calls it with exactly
+these four positional arguments: `pot`, the potential type we defined earlier; `r`, the
+distance between two particles; and `sigma1` and `sigma2`, the diameters of those two
+particles. It must return the energy and the force, `-dU/dr`. Any other parameter of the
+potential, here the cutoff radius and the non-additivity, is set inside the function or
+stored in the `Polydisperse` type.
 """
-function evaluate(
-    pot::Polydisperse,
-    r::Real;
-    sigma1::Real,
-    sigma2::Real;
-    rcut::Real=1.25,
-    non_additivity::Real=0.2,
-)
+function evaluate(pot::Polydisperse, r::Float64, sigma1::Float64, sigma2::Float64)
+    rcut = 1.25
+    non_additivity = 0.2
     # We need to compute the special non-additive sigma
     σ_eff = 0.5 * (sigma1 + sigma2)
     σ_eff *= (1.0 - non_additivity * abs(sigma1 - sigma2))
@@ -155,6 +157,8 @@ function main()
     n_particles = 1200
     println("Number of particles: $(n_particles)")
     dt = 0.005
+    dimension = 2
+    rng = Random.Xoshiro(1234)
     # Instantiate a `Parameters` object to hold this information
     phs = Polydisperse()
     params = Parameters(density, n_particles, dt, phs)
@@ -165,14 +169,21 @@ function main()
     )
     mkpath(pathname)
 
-    # Here we initialize the state of the simulation from a file
+    # Here we initialize the state of the simulation from a file. The cutoff has to cover
+    # the range of the potential, 1.25 times the largest σ_eff.
     state = initialize_state(
-        params, pathname; dimension=2, from_file="snapshot_step_10000000.xyz"
+        params,
+        pathname;
+        dimension=dimension,
+        from_file="snapshot_step_10000000.xyz",
+        cutoff=2.0,
+        rng=rng,
     )
     # Velocities have to be explicitly set
     init_temperature = initial_temperature_for_velocities(ktemp)
-    velocities = initialize_velocities(init_temperature, rng, params.n_particles, dimension)
-    state.velocities = velocities
+    state.velocities = initialize_velocities(
+        init_temperature, rng, params.n_particles, dimension
+    )
     # We want to simulation standard NVE
     run_simulation!(state, params, NVE(), 100_000, 1_000, pathname; compress=true)
 
@@ -186,16 +197,16 @@ main()
 
 - Uses the Bussi-Donadio-Parrinello thermostat to control temperature.
 - Integrates particles' positions and velocities using velocity Verlet.
-- The Brownian dynamics integrator is a simple Euler-Murayama first order integrator. This is essentially the approach of the Ermak-McCammon algorithm. The only difference is that a uniform distribution with the same moments as a normal distribution is sampled; this is done for efficiency of the code.
+- The Brownian dynamics integrator is a simple Euler-Maruyama first order integrator. This is essentially the approach of the Ermak-McCammon algorithm. The only difference is that a uniform distribution with the same moments as a normal distribution is sampled; this is done for efficiency of the code.
 - Forces are computed with a Verlet neighbor list built from cell lists, rebuilt only when a particle has moved more than half the skin (`skin` keyword of `initialize_state`, default `0.3`). It supports 2D and 3D, orthorhombic and triclinic boxes, and any box size relative to the cutoff.
 - Runs in parallel with Julia threads, e.g. `julia -t 8 script.jl`. On a Lennard-Jones melt it matches or beats LAMMPS on the same number of cores; see `benchmark/run.sh` to reproduce.
 - For now it can compute energy and pressure, but also outputs the trajectory of the simulation for post-processing.
-- The Lennard-Jones potential and a pseudo hard sphere potential are implemented. Switching between them requires you to modify the source code. Long range corrections for the Lennard-Jones potential are included. However, generic user-defined interaction potentials can now be defined with the new interface.
-  - Benchmarks fagainst LAMMPS and NIST results for the Lennard-Jones interaction potential are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
-- Initial configurations can be created in a random configuration. Random configurations are then packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
-- Now it can save configurations using XYZ and LAMMPS format, but one cannot choose it. Trajectories are saved in Extended XYZ format, and compressed with `zstd` after the full trajectory has been written.
-    - It can also print the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties. However, the only format that support this is the LAMMPS format.
-- The configuration can now be minimized to a local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
+- The Lennard-Jones potential (optionally energy- or force-shifted, and with long range corrections), a Lennard-Jones potential with an XPLOR switching function, and a pseudo hard sphere potential are implemented; the potential is chosen when creating `Parameters`. Generic user-defined interaction potentials can be defined as shown above.
+  - Benchmarks against LAMMPS and NIST results for the Lennard-Jones interaction potential are in the [wiki](https://github.com/edwinb-ai/MolecularDynamics.jl/wiki/Lennard%E2%80%90Jones-results).
+- Initial configurations can be random, read from an extended XYZ file (`from_file`), or given directly with the `positions`, `diameters` and `unitcell` keywords of `initialize_state`. Random configurations are packed (removing overlaps) using [Packmol.jl](https://github.com/m3g/Packmol.jl).
+- Configurations (`init.xyz`, `final.xyz`, `minimized.xyz`) are saved in extended XYZ format, readable by OVITO and ASE; 2D systems are written with `z = 0` and `pbc="T T F"`. Trajectories and snapshots are saved in the LAMMPS dump format, whatever their file name, and can be compressed with `zstd` after the full trajectory has been written.
+    - The LAMMPS dumps include the unwrapped coordinates of the particles, which are useful for the analysis of dynamical properties.
+- The configuration can be minimized to a local energy minimum with the fast inertial relaxation engine (FIRE) algorithm.
 
 ## Upgrading to 0.8
 
@@ -219,7 +230,3 @@ main()
 julia --project -e 'using Pkg; Pkg.test()'
 julia --project -e 'using Pkg; Pkg.test(julia_args=["--threads=4"])'
 ```
-
-## TODO
-- Also, the configuration of the system is always at random and packed, which helps to start a random simulation. However, the user should be able to set their configuration as they want, and the code do the integration of the equations of motion.
-    - I think that for this the code is generic enough that one should be able to pass an array of positions to the state. Right now the state does not accept this, but it would be useful if the user can pass a configuration of their choosing, and the engine will just integrate the equations of motion. This will also reduce the amount of dependencies that we need to care of.

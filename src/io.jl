@@ -48,22 +48,28 @@ end
 
 """
     write_to_file(filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a")
-Writes the system state to file, expecting a matrix for the box/unitcell.
+
+Write a configuration in extended XYZ format: a 3×3 `Lattice` (box vectors one after
+another), `pbc`, and per particle its type, id, radius and position. 2D systems are
+embedded in 3D with `z = 0`, a unit box vector along z and `pbc="T T F"`.
 """
 function write_to_file(
     filepath, step, unitcell, n_particles, positions, diameters, dimension; mode="a"
 )
+    # Box vectors as the columns of a 3x3 matrix, padded with a unit z vector in 2D
+    boxmat = Matrix{Float64}(I, 3, 3)
+    boxmat[1:dimension, 1:dimension] .= unitcell
+    pbc = dimension == 3 ? "T T T" : "T T F"
+
     open(filepath, mode) do io
         println(io, n_particles)
-        # Write matrix as Lattice property (flattened row-major)
-        flat_lattice = join(
-            [string(unitcell[i, j]) for i in 1:dimension, j in 1:dimension], " "
-        )
+        # Column-major order lists the box vectors one after another
+        flat_lattice = join(string.(vec(boxmat)), " ")
         Printf.@printf(
             io,
-            "Lattice=\"%s\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:%d Time=%.6g\n",
+            "Lattice=\"%s\" Properties=type:I:1:id:I:1:radius:R:1:pos:R:3 pbc=\"%s\" Time=%.6g\n",
             flat_lattice,
-            dimension,
+            pbc,
             step,
         )
 
@@ -71,8 +77,8 @@ function write_to_file(
         for i in 1:n_particles
             pos = positions[i]
             Printf.@printf(io, "%d %d %lf", 1, i, diameters[i] / 2.0)
-            for d in 1:dimension
-                Printf.@printf(io, " %lf", pos[d])
+            for d in 1:3
+                Printf.@printf(io, " %lf", d <= dimension ? pos[d] : 0.0)
             end
             Printf.@printf(io, "\n")
         end
@@ -208,8 +214,10 @@ function write_lammps_box(io, boxmat, dimension)
 end
 
 """
-    read_file(filepath; dimension=3)
-Reads a configuration file, expecting a matrix for the box/unitcell.
+    read_file(filepath; dimension=3) -> (unitcell, positions, diameters)
+
+Read a configuration written by [`write_to_file`](@ref). Also reads files from versions
+before 0.8.1, which stored 2D systems with a 2×2 `Lattice` and two coordinates.
 """
 function read_file(filepath; dimension=3)
     n_particles = 0
@@ -221,15 +229,20 @@ function read_file(filepath; dimension=3)
         n_particles = parse(Int64, readline(io))
         header = readline(io)
         m = match(r"Lattice=\"([^\"]+)\"", header)
-        if m !== nothing
-            box_entries = parse.(Float64, split(m.captures[1]))
+        if m === nothing
+            error("Could not parse Lattice property in file header")
+        end
+        box_entries = parse.(Float64, split(m.captures[1]))
+        if length(box_entries) == 9
+            unitcell .= reshape(box_entries, 3, 3)[1:dimension, 1:dimension]
+        elseif length(box_entries) == dimension^2
             unitcell .= reshape(box_entries, dimension, dimension)
         else
-            error("Could not parse Lattice property in file header")
+            error("Lattice has $(length(box_entries)) entries, expected 9")
         end
 
         for _ in 1:n_particles
-            line = split(readline(io), " ")
+            line = split(readline(io))
             # type, id, radius, x, y, (z)
             radius = parse(Float64, line[3])
             coords = parse.(Float64, line[4:(3 + dimension)])
