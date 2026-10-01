@@ -11,10 +11,12 @@ Converges when the root mean square force per degree of freedom drops below `tol
 - `alpha0=0.1`: initial velocity mixing parameter.
 - `f_inc=1.2`, `f_dec=0.2`: time step increase and decrease factors.
 - `Nmin=5`: number of downhill steps before the time step may grow.
+- `dimension`: ignored, kept for compatibility (the state knows its dimension).
 """
 function fire_minimize!(
     state::SimulationState,
     params::Parameters;
+    dimension::Int=state.dimension,
     max_steps::Int=10000,
     tol::Float64=1e-6,
     dt_initial::Float64=0.01,

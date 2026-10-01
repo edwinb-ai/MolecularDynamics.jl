@@ -16,7 +16,8 @@
     # Stopping early reports it
     (state, params, L) = lj_state(3; jitter=0.1, seed=7)
     (energy, converged) = quiet() do
-        MD.fire_minimize!(state, params; max_steps=5)
+        # `dimension` is still accepted for compatibility
+        MD.fire_minimize!(state, params; max_steps=5, dimension=3)
     end
     @test !converged
     @test isfinite(energy)

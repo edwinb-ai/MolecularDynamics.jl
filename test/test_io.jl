@@ -91,3 +91,42 @@ end
     )
     @test shortest > 0.9
 end
+
+@testset "LAMMPS box headers" begin
+    function header(unitcell)
+        D = size(unitcell, 1)
+        path = joinpath(mktempdir(), "frame.lammpstrj")
+        x = [unitcell * fill(0.5, SVector{D,Float64})]
+        MD.write_to_file_lammps(path, 0, unitcell, 1, x, [zero(SVector{D,Int32})], [1.0], D)
+        lines = readlines(path)
+        return lines[5], [parse.(Float64, split(l)) for l in lines[6:8]], lines[9]
+    end
+
+    # Expected values are those LAMMPS itself writes for the same boxes
+    (item, bounds, atoms) = header(SMatrix{3,3}(Diagonal([6.0, 5.0, 7.0])))
+    @test item == "ITEM: BOX BOUNDS pp pp pp"
+    @test bounds == [[0.0, 6.0], [0.0, 5.0], [0.0, 7.0]]
+    @test atoms == "ITEM: ATOMS id type radius x y z xu yu zu"
+
+    (item, bounds, _) = header(SMatrix{3,3}([6.0 1.0 0.5; 0.0 5.0 0.7; 0.0 0.0 7.0]))
+    @test item == "ITEM: BOX BOUNDS xy xz yz pp pp pp"
+    @test bounds ≈ [[0.0, 7.5, 1.0], [0.0, 5.7, 0.5], [0.0, 7.0, 0.7]]
+
+    (item, bounds, _) = header(SMatrix{3,3}([6.0 -1.0 0.5; 0.0 5.0 -0.7; 0.0 0.0 7.0]))
+    @test bounds ≈ [[-1.0, 6.5, -1.0], [-0.7, 5.0, 0.5], [0.0, 7.0, -0.7]]
+
+    (item, bounds, atoms) = header(SMatrix{2,2}([8.0 0.0; 0.0 6.0]))
+    @test item == "ITEM: BOX BOUNDS pp pp pp"
+    @test bounds == [[0.0, 8.0], [0.0, 6.0], [-0.5, 0.5]]
+    @test atoms == "ITEM: ATOMS id type radius x y xu yu"
+
+    (item, bounds, _) = header(SMatrix{2,2}([8.0 2.0; 0.0 6.0]))
+    @test item == "ITEM: BOX BOUNDS xy xz yz pp pp pp"
+    @test bounds ≈ [[0.0, 10.0, 2.0], [0.0, 6.0, 0.0], [-0.5, 0.5, 0.0]]
+
+    # Not upper triangular: general triclinic, one box vector and origin per line
+    unitcell = SMatrix{3,3}([5.0 -1.0 0.5; 2.0 4.0 -1.0; 1.0 1.0 6.0])
+    (item, bounds, _) = header(unitcell)
+    @test item == "ITEM: BOX BOUNDS abc origin pp pp pp"
+    @test bounds ≈ [[unitcell[:, k]; 0.0] for k in 1:3]
+end

@@ -44,14 +44,15 @@ FastPow.@fastpow function pseudohs(rij, sigma; lambda=50.0)
 end
 
 """
-    struct LennardJones
+    LennardJones(; epsilon=1.0, sigma=1.0, r_cut=2.5, shift=false, force_shift=false, tail_correction=false)
 
-Standard Lennard-Jones potential, with optional energy and force shifting.
-- `ϵ`: Well depth parameter.
-- `σ`: Size parameter.
-- `r_cut`: Potential cutoff radius.
-- `shift`: If true, applies energy shift so that V(r_cut) = 0.
-- `force_shift`: If true, applies force shift so that both V(r_cut) = 0 and F(r_cut) = 0.
+Lennard-Jones potential truncated at `r_cut`, with optional energy and force shifting.
+The size of each pair is the mean of the two particle diameters.
+- `epsilon`: well depth.
+- `sigma`: size used for the tail corrections and the stored `V_cut`, `F_cut`.
+- `shift`: shift the energy so that V(r_cut) = 0.
+- `force_shift`: shift energy and force so that V(r_cut) = 0 and F(r_cut) = 0.
+- `tail_correction`: add the analytic long-range corrections of the unshifted potential.
 """
 struct LennardJones{T<:AbstractFloat} <: Potential
     epsilon::T
@@ -67,15 +68,25 @@ end
 function LennardJones(;
     epsilon=1.0, sigma=1.0, r_cut=2.5, shift=false, force_shift=false, tail_correction=false
 )
+    (Vcut, Fcut) = lj_cut_values(epsilon, sigma, r_cut)
+    return LennardJones(
+        epsilon, sigma, r_cut, shift, force_shift, tail_correction, Vcut, Fcut
+    )
+end
+
+"""
+    lj_cut_values(epsilon, sigma, r_cut) -> (V_cut, F_cut)
+
+Lennard-Jones energy and force at the cutoff.
+"""
+@inline function lj_cut_values(epsilon, sigma, r_cut)
     srcut = sigma / r_cut
     srcut2 = srcut * srcut
     srcut6 = srcut2 * srcut2 * srcut2
     srcut12 = srcut6 * srcut6
     Vcut = 4.0 * epsilon * (srcut12 - srcut6)
     Fcut = 24.0 * epsilon * (2.0 * srcut12 - srcut6) / r_cut
-    return LennardJones(
-        epsilon, sigma, r_cut, shift, force_shift, tail_correction, Vcut, Fcut
-    )
+    return Vcut, Fcut
 end
 
 """
@@ -127,7 +138,7 @@ FastPow.@fastpow function lj_force_shifted(r, epsilon, sigma, r_cut, Vcut, Fcut)
     sr2 = sr^2
     sr6 = sr2^3
     sr12 = sr6^2
-    V = 4.0 * epsilon * (sr12 - sr6) - Vcut - (r - r_cut) * Fcut
+    V = 4.0 * epsilon * (sr12 - sr6) - Vcut + (r - r_cut) * Fcut
     F = 24.0 * epsilon * (2.0 * sr12 - sr6) / r - Fcut
     return V, F
 end
@@ -184,19 +195,27 @@ end
 """
     evaluate(pot::LennardJones, r, sigma1, sigma2)
 
-Evaluate the Lennard-Jones potential at distance `r`, with `σ = (sigma1 + sigma2) / 2`.
-Returns a tuple `(energy, force)`.
+Evaluate the Lennard-Jones potential at distance `r`, with `σ = (sigma1 + sigma2) / 2`,
+applying the shifts selected in `pot`. Returns a tuple `(energy, force)`.
 """
 function evaluate(pot::LennardJones, r::Float64, sigma1::Float64, sigma2::Float64)
     # ! FIXME: Mixing rules cannot be assumed for the user
     σ = (sigma1 + sigma2) / 2.0
+    if pot.force_shift
+        (Vcut, Fcut) = lj_cut_values(pot.epsilon, σ, pot.r_cut)
+        return lj_force_shifted(r, pot.epsilon, σ, pot.r_cut, Vcut, Fcut)
+    elseif pot.shift
+        (Vcut, _) = lj_cut_values(pot.epsilon, σ, pot.r_cut)
+        return lj_energy_shifted(r, pot.epsilon, σ, pot.r_cut, Vcut)
+    end
     return lj_unshifted(r, pot.epsilon, σ, pot.r_cut)
 end
 
 """
     evaluate_r2(pot::LennardJones, r2, sigma1, sigma2)
 
-`sqrt`-free Lennard-Jones evaluation, equivalent to `evaluate`. Returns `(energy, force / r)`.
+Lennard-Jones evaluation from `r2`, equivalent to `evaluate` and `sqrt`-free unless
+`force_shift` is set. Returns `(energy, force / r)`.
 """
 @inline function evaluate_r2(
     pot::LennardJones, r2::Float64, sigma1::Float64, sigma2::Float64
@@ -204,12 +223,21 @@ end
     if r2 >= pot.r_cut^2
         return 0.0, 0.0
     end
+    # The force shift depends on r itself
+    if pot.force_shift
+        r = sqrt(r2)
+        (V, F) = evaluate(pot, r, sigma1, sigma2)
+        return V, F / r
+    end
     σ = (sigma1 + sigma2) / 2.0
     sr2 = σ * σ / r2
     sr6 = sr2 * sr2 * sr2
     sr12 = sr6 * sr6
     V = 4.0 * pot.epsilon * (sr12 - sr6)
     F_over_r = 24.0 * pot.epsilon * (2.0 * sr12 - sr6) / r2
+    if pot.shift
+        V -= first(lj_cut_values(pot.epsilon, σ, pot.r_cut))
+    end
     return V, F_over_r
 end
 

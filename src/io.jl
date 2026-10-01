@@ -101,8 +101,9 @@ end
         filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
     )
 
-Write a LAMMPS trajectory file supporting generic simulation boxes (orthogonal or triclinic).
-- `unitcell` should be a square matrix (SMatrix or Matrix).
+Write a LAMMPS trajectory frame for any box: orthogonal, triclinic, or general triclinic
+(see [`write_lammps_box`](@ref)). `unitcell` is a square matrix whose columns are the box
+vectors, and the box origin is at zero.
 """
 function write_to_file_lammps(
     filepath, step, unitcell, n_particles, positions, images, diameters, dimension; mode="w"
@@ -114,31 +115,11 @@ function write_to_file_lammps(
         # Use a 3x3 matrix for box representation (for LAMMPS, pad with identity if 2D)
         boxmat = zeros(3, 3)
         boxmat[1:dimension, 1:dimension] .= unitcell
+        write_lammps_box(io, boxmat, dimension)
 
         if dimension == 2
-            lx = norm(boxmat[:, 1])
-            ly = norm(boxmat[:, 2])
-            xlo, xhi = 0.0, lx
-            ylo, yhi = 0.0, ly
-            zlo, zhi = 0.0, 1.0
-            xy = boxmat[1, 2]
-            Printf.@printf(io, "ITEM: BOX BOUNDS xy pp pp\n")
-            Printf.@printf(io, "%lf %lf %lf\n", xlo, xhi, xy)
-            Printf.@printf(io, "%lf %lf 0.0\n", ylo, yhi)
-            Printf.@printf(io, "%lf %lf 0.0\n", zlo, zhi)
             Printf.@printf(io, "ITEM: ATOMS id type radius x y xu yu\n")
         elseif dimension == 3
-            # Extract box bounds and tilt factors for LAMMPS
-            xlo, xhi = 0.0, norm(boxmat[:, 1])
-            ylo, yhi = 0.0, norm(boxmat[:, 2])
-            zlo, zhi = 0.0, norm(boxmat[:, 3])
-            xy = boxmat[1, 2]
-            xz = boxmat[1, 3]
-            yz = boxmat[2, 3]
-            Printf.@printf(io, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n")
-            Printf.@printf(io, "%lf %lf %lf\n", xlo, xhi, xy)
-            Printf.@printf(io, "%lf %lf %lf\n", ylo, yhi, yz)
-            Printf.@printf(io, "%lf %lf %lf\n", zlo, zhi, xz)
             Printf.@printf(io, "ITEM: ATOMS id type radius x y z xu yu zu\n")
         else
             error("Unsupported dimension: $dimension")
@@ -177,6 +158,52 @@ function write_to_file_lammps(
             end
         end
     end
+    return nothing
+end
+
+"""
+    write_lammps_box(io, boxmat, dimension)
+
+Write the `ITEM: BOX BOUNDS` section of a LAMMPS dump for the 3×3 box `boxmat` (columns are
+the box vectors). An upper-triangular box uses the orthogonal or restricted triclinic
+format (`xy xz yz` tilts with LAMMPS bounding-box bounds); any other box uses the general
+triclinic format (`abc origin`). 2D boxes span z from -0.5 to 0.5, as in LAMMPS.
+"""
+function write_lammps_box(io, boxmat, dimension)
+    M = copy(boxmat)
+    zlo = 0.0
+    if dimension == 2
+        M[3, 3] = 1.0
+        zlo = -0.5
+    end
+
+    restricted = iszero(M[2, 1]) && iszero(M[3, 1]) && iszero(M[3, 2]) && all(>(0), diag(M))
+    if !restricted
+        Printf.@printf(io, "ITEM: BOX BOUNDS abc origin pp pp pp\n")
+        origin = (0.0, 0.0, zlo)
+        for k in 1:3
+            Printf.@printf(
+                io, "%.16g %.16g %.16g %.16g\n", M[1, k], M[2, k], M[3, k], origin[k]
+            )
+        end
+    elseif isdiag(M)
+        Printf.@printf(io, "ITEM: BOX BOUNDS pp pp pp\n")
+        Printf.@printf(io, "%.16g %.16g\n", 0.0, M[1, 1])
+        Printf.@printf(io, "%.16g %.16g\n", 0.0, M[2, 2])
+        Printf.@printf(io, "%.16g %.16g\n", zlo, zlo + M[3, 3])
+    else
+        (xy, xz, yz) = (M[1, 2], M[1, 3], M[2, 3])
+        # LAMMPS writes the bounds of the box's bounding box, then the tilt factors
+        xlo_bound = min(0.0, xy, xz, xy + xz)
+        xhi_bound = M[1, 1] + max(0.0, xy, xz, xy + xz)
+        ylo_bound = min(0.0, yz)
+        yhi_bound = M[2, 2] + max(0.0, yz)
+        Printf.@printf(io, "ITEM: BOX BOUNDS xy xz yz pp pp pp\n")
+        Printf.@printf(io, "%.16g %.16g %.16g\n", xlo_bound, xhi_bound, xy)
+        Printf.@printf(io, "%.16g %.16g %.16g\n", ylo_bound, yhi_bound, xz)
+        Printf.@printf(io, "%.16g %.16g %.16g\n", zlo, zlo + M[3, 3], yz)
+    end
+
     return nothing
 end
 

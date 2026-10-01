@@ -74,6 +74,36 @@ mutable struct SimulationState{D,T<:AbstractFloat,M,R,NL}
     virial::T
 end
 
+# Before version 0.8 the state held a CellListMap particle system in `state.system`.
+# Keep reading it working, without slowing down the access to the other fields.
+@inline Base.@constprop :aggressive function Base.getproperty(
+    state::SimulationState, name::Symbol
+)
+    name === :system && return deprecated_system(state)
+    return getfield(state, name)
+end
+
+@noinline function deprecated_system(state::SimulationState)
+    Base.depwarn(
+        "`state.system` is deprecated, use `state.positions`, `state.forces`, " *
+        "`state.energy` and `state.virial` instead.",
+        :system,
+    )
+    positions = getfield(state, :positions)
+    energy_and_forces = (
+        energy=getfield(state, :energy),
+        virial=getfield(state, :virial),
+        forces=getfield(state, :forces),
+    )
+    return (
+        positions=positions,
+        xpositions=positions,
+        unitcell=getfield(state, :unitcell),
+        cutoff=getfield(state, :neighbors).cutoff,
+        energy_and_forces=energy_and_forces,
+    )
+end
+
 abstract type Ensemble end
 
 """

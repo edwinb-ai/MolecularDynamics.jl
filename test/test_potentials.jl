@@ -8,6 +8,18 @@ end
     @testset "force is -dU/dr: $name" for (name, pot, sigmas, rs) in [
         ("LennardJones", LennardJones(; r_cut=2.5), [(1.0, 1.0), (0.8, 1.3)], 0.9:0.1:2.4),
         (
+            "LennardJones shifted",
+            LennardJones(; r_cut=2.5, shift=true),
+            [(1.0, 1.0), (0.8, 1.3)],
+            0.9:0.1:2.4,
+        ),
+        (
+            "LennardJones force-shifted",
+            LennardJones(; r_cut=2.5, force_shift=true),
+            [(1.0, 1.0), (0.8, 1.3)],
+            0.9:0.1:2.4,
+        ),
+        (
             "LennardJonesXPLOR",
             LennardJonesXPLOR(1.0, 1.0, 2.0, 2.5, false),
             [(1.0, 1.0), (0.9, 1.2)],
@@ -40,6 +52,33 @@ end
         @test MD.evaluate_r2(pot, 2.5^2, 1.0, 1.0) == (0.0, 0.0)
         # Mixed diameters use the arithmetic mean
         @test evaluate(pot, 1.3, 0.8, 1.2) == evaluate(pot, 1.3, 1.0, 1.0)
+    end
+
+    @testset "Lennard-Jones shifts" begin
+        rc = 2.5
+        plain = LennardJones(; r_cut=rc)
+        shifted = LennardJones(; r_cut=rc, shift=true)
+        force_shifted = LennardJones(; r_cut=rc, force_shift=true)
+        for (s1, s2) in ((1.0, 1.0), (0.8, 1.3))
+            σ = (s1 + s2) / 2
+            (Vcut, Fcut) = MD.lj_cut_values(1.0, σ, rc)
+            for r in 0.9:0.2:2.3
+                (u0, f0) = evaluate(plain, r, s1, s2)
+                # Energy shift only moves the energy
+                @test evaluate(shifted, r, s1, s2) == (u0 - Vcut, f0)
+                # Force shift makes both vanish linearly at the cutoff
+                @test evaluate(force_shifted, r, s1, s2)[1] ≈ u0 - Vcut + (r - rc) * Fcut
+                @test evaluate(force_shifted, r, s1, s2)[2] ≈ f0 - Fcut
+            end
+            for pot in (shifted, force_shifted)
+                @test abs(first(evaluate(pot, rc - 1e-10, s1, s2))) < 1e-9
+                @test evaluate(pot, rc, s1, s2) == (0.0, 0.0)
+                @test MD.evaluate_r2(pot, rc^2, s1, s2) == (0.0, 0.0)
+            end
+            @test abs(last(evaluate(force_shifted, rc - 1e-10, s1, s2))) < 1e-9
+        end
+        # The stored cutoff values are those of `sigma`
+        @test (shifted.V_cut, shifted.F_cut) == MD.lj_cut_values(1.0, 1.0, rc)
     end
 
     @testset "XPLOR switching" begin

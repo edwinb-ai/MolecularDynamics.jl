@@ -153,3 +153,16 @@ end
     (state, params, L) = lj_state(2)
     @test_throws ArgumentError run_simulation!(state, params, NVE(), 10, 5, mktempdir())
 end
+
+@testset "Deprecated state.system" begin
+    (state, params, L) = lj_state(2; jitter=0.1)
+    MD.compute_forces!(state, params.potential)
+    system = @test_deprecated state.system
+    @test system.positions === state.positions
+    @test system.xpositions === state.positions
+    @test system.energy_and_forces.forces === state.forces
+    @test system.energy_and_forces.energy == state.energy
+    @test system.energy_and_forces.virial == state.virial
+    @test system.unitcell == state.unitcell
+    @test system.cutoff == 2.5
+end
