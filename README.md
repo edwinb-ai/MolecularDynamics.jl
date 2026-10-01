@@ -140,7 +140,7 @@ particles. It must return the energy and the force, `-dU/dr`. Any other paramete
 potential, here the cutoff radius and the non-additivity, is set inside the function or
 stored in the `Polydisperse` type.
 """
-function evaluate(pot::Polydisperse, r::Float64, sigma1::Float64, sigma2::Float64)
+function evaluate(pot::Polydisperse, r::Real, sigma1::Real, sigma2::Real)
     rcut = 1.25
     non_additivity = 0.2
     # We need to compute the special non-additive sigma
@@ -192,6 +192,24 @@ end
 
 main()
 ```
+
+## Vibrational modes
+
+The Hessian of a (minimized) configuration is computed exactly, without finite differences:
+ForwardDiff differentiates each pair energy through your `evaluate` method, which therefore
+has to accept `r::Real` rather than only `r::Float64`.
+
+```julia
+minimize!(state, params, pathname, dimension; tol=1e-10)
+H = hessian(state, params)              # sparse dN × dN matrix
+(ω, modes) = lowest_modes(H, 100)       # lowest 100 modes, for large systems
+(ω, modes) = normal_modes(H)            # all modes, up to a few thousand particles
+P = participation_ratio(modes, dimension)
+```
+
+Masses are 1, frequencies are `sqrt` of the eigenvalues (negative for unstable directions),
+and the participation ratio is about 1 for extended modes and of order `1/N` for localized
+ones. See `examples/vibrational_modes.jl`.
 
 ## Features
 

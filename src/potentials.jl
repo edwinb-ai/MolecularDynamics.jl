@@ -18,7 +18,7 @@ PseudoHS() = PseudoHS(pseudohs)
 
 Evaluate the pseudo hard-sphere potential with `σ = (sigma1 + sigma2) / 2`.
 """
-function evaluate(pot::PseudoHS, r::Float64, sigma1::Float64, sigma2::Float64)
+function evaluate(pot::PseudoHS, r::Real, sigma1::Real, sigma2::Real)
     sigma = (sigma1 + sigma2) / 2.0
     return pot.potf(r, sigma; lambda=50.0)
 end
@@ -198,7 +198,7 @@ end
 Evaluate the Lennard-Jones potential at distance `r`, with `σ = (sigma1 + sigma2) / 2`,
 applying the shifts selected in `pot`. Returns a tuple `(energy, force)`.
 """
-function evaluate(pot::LennardJones, r::Float64, sigma1::Float64, sigma2::Float64)
+function evaluate(pot::LennardJones, r::Real, sigma1::Real, sigma2::Real)
     # ! FIXME: Mixing rules cannot be assumed for the user
     σ = (sigma1 + sigma2) / 2.0
     if pot.force_shift

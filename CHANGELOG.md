@@ -3,6 +3,22 @@
 Notable changes between versions of MolecularDynamics.jl. Versions follow semantic
 versioning; while the version is below 1.0, a minor version (0.x) may break the API.
 
+## [Unreleased]
+
+### Added
+
+- `hessian(state, params)`: exact sparse Hessian of the potential energy. ForwardDiff
+  computes the radial derivatives of each pair energy through `evaluate`, so user-defined
+  potentials need no extra code beyond accepting `r::Real`.
+- `normal_modes(H)` (dense, all modes), `lowest_modes(H, k)` (shift-invert Lanczos, for
+  large systems) and `participation_ratio(modes, dimension)`.
+- `examples/vibrational_modes.jl` for the 2D core-softened potential.
+
+### Changed
+
+- The built-in potentials accept any `r::Real` in `evaluate`.
+- New dependencies: ForwardDiff, KrylovKit and SparseArrays.
+
 ## [0.8.2] - 2026-10-01
 
 ### Changed

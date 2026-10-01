@@ -8,4 +8,5 @@ include("helpers.jl")
     include("test_dynamics.jl")
     include("test_minimize.jl")
     include("test_io.jl")
+    include("test_hessian.jl")
 end

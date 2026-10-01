@@ -2,8 +2,9 @@
     Potential
 
 Abstract supertype of all pair potentials. A subtype must implement
-`evaluate(pot, r, sigma1, sigma2) -> (energy, force)`, where `force = -dU/dr`.
-It may also implement [`evaluate_r2`](@ref) for a faster, `sqrt`-free path.
+`evaluate(pot, r, sigma1, sigma2) -> (energy, force)`, where `force = -dU/dr`. Declare
+`r::Real` rather than `r::Float64`, so that [`hessian`](@ref) can differentiate it with
+ForwardDiff. It may also implement [`evaluate_r2`](@ref) for a faster, `sqrt`-free path.
 """
 abstract type Potential end
 
@@ -13,7 +14,11 @@ function evaluate(pot::Potential, r::Real; kwargs...)
 end
 
 function evaluate(pot::Potential, r, sigma1, sigma2)
-    return error("evaluate not implemented for potential type: $(typeof(pot))")
+    return error(
+        "evaluate not implemented for potential type $(typeof(pot)) and distance type " *
+        "$(typeof(r)). Define `evaluate(pot::$(nameof(typeof(pot))), r::Real, sigma1, sigma2)`; " *
+        "`r::Real` also accepts the dual numbers that `hessian` uses.",
+    )
 end
 
 """

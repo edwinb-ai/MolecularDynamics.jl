@@ -10,11 +10,11 @@ const MD = MolecularDynamics
 
 # Smooth, bounded potential; defines only `evaluate`, so it exercises the `evaluate_r2` fallback
 struct Gaussian <: Potential end
-evaluate(::Gaussian, r::Float64, s1::Float64, s2::Float64) = (exp(-r^2), 2r * exp(-r^2))
+evaluate(::Gaussian, r::Real, s1::Real, s2::Real) = (exp(-r^2), 2r * exp(-r^2))
 
 # Non-interacting particles
 struct Ideal <: Potential end
-evaluate(::Ideal, r::Float64, s1::Float64, s2::Float64) = (0.0, 0.0)
+evaluate(::Ideal, r::Real, s1::Real, s2::Real) = (0.0, 0.0)
 
 "FCC lattice with `ncell^3` unit cells at number density `rho`; returns positions and box length."
 function fcc_positions(ncell, rho)
