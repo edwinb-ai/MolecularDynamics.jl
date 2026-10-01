@@ -5,6 +5,17 @@ versioning; while the version is below 1.0, a minor version (0.x) may break the 
 
 ## [Unreleased]
 
+### Upgrading from 0.8
+
+- `LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)` has been removed. Use
+  `Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut, tail_correction); r_on, r_cut,
+  switch=:xplor)`, which gives the same energies, forces and tail corrections, or the
+  default quintic switch, which also keeps the second derivative continuous.
+- `LennardJones` tail corrections now include the factor `ε σ³`: energies and pressures
+  with `tail_correction=true` change when `epsilon` or `sigma` differ from 1.
+- To compute Hessians, user-defined `evaluate` methods must accept `r::Real` rather than
+  only `r::Float64`.
+
 ### Added
 
 - `hessian(state, params)`: exact sparse Hessian of the potential energy. ForwardDiff
@@ -14,16 +25,14 @@ versioning; while the version is below 1.0, a minor version (0.x) may break the 
   large systems) and `participation_ratio(modes, dimension)`.
 - `Smoothed(potential; r_on, r_cut, switch=:quintic)` switches any potential off smoothly
   between `r_on` and `r_cut`. The quintic switch keeps the energy, force and second
-  derivative continuous; `switch=:xplor` keeps only the energy and force continuous.
-  `initialize_state` rejects a cutoff shorter than `r_cut`.
+  derivative continuous; `switch=:xplor` keeps only the energy and force continuous. The
+  tail corrections of the wrapped potential, if any, are applied. `initialize_state`
+  rejects a cutoff shorter than `r_cut`.
 - `examples/vibrational_modes.jl` for the 2D core-softened potential.
 
-### Deprecated
+### Removed
 
-- `LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)`: use the equivalent
-  `Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut, tail_correction); r_on, r_cut,
-  switch=:xplor)`, or the default quintic switch, which also keeps the second derivative
-  continuous. It still works, with a deprecation warning.
+- `LennardJonesXPLOR`, replaced by `Smoothed` (see above).
 
 ### Fixed
 
@@ -33,7 +42,6 @@ versioning; while the version is below 1.0, a minor version (0.x) may break the 
 ### Changed
 
 - The built-in potentials accept any `r::Real` in `evaluate`.
-- `Smoothed` applies the tail corrections of the wrapped potential, if it has them.
 - New dependencies: ForwardDiff, KrylovKit and SparseArrays.
 
 ## [0.8.2] - 2026-10-01

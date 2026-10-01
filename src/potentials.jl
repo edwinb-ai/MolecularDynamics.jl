@@ -242,39 +242,6 @@ Lennard-Jones evaluation from `r2`, equivalent to `evaluate` and `sqrt`-free unl
 end
 
 """
-    LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)
-
-!!! warning "Deprecated"
-    Use the equivalent
-    `Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut, tail_correction); r_on, r_cut, switch=:xplor)`,
-    or the default quintic switch, which also keeps the second derivative continuous.
-
-Lennard-Jones potential with XPLOR smooth cutoff and optional long-range corrections.
-- `ϵ`: Well depth parameter.
-- `σ`: Size parameter.
-- `r_on`: Switching function start radius.
-- `r_cut`: Potential cutoff radius.
-- `tail_correction`: If true, applies long-range (tail) corrections to energy and pressure.
-"""
-struct LennardJonesXPLOR <: Potential
-    ϵ::Float64
-    σ::Float64
-    r_on::Float64
-    r_cut::Float64
-    tail_correction::Bool
-
-    function LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)
-        Base.depwarn(
-            "`LennardJonesXPLOR(ϵ, σ, r_on, r_cut, tail_correction)` is deprecated, use " *
-            "`Smoothed(LennardJones(; epsilon=ϵ, sigma=σ, r_cut=r_cut, " *
-            "tail_correction=tail_correction); r_on=r_on, r_cut=r_cut, switch=:xplor)`.",
-            :LennardJonesXPLOR,
-        )
-        return new(ϵ, σ, r_on, r_cut, tail_correction)
-    end
-end
-
-"""
     xplor_switch(r, r_on, r_cut)
 
 Compute the value and derivative of the XPLOR switching function at distance `r`.
@@ -297,71 +264,6 @@ function xplor_switch(r, r_on, r_cut)
     end
 end
 
-"""
-    lj_xplor(r, ϵ, σ, r_on, r_cut) -> (energy, force)
-
-Lennard-Jones energy and force with the XPLOR switch between `r_on` and `r_cut`.
-"""
-FastPow.@fastpow function lj_xplor(r, ϵ, σ, r_on, r_cut)
-    if r >= r_cut
-        return 0.0, 0.0
-    end
-
-    sr = σ / r
-    sr2 = sr^2
-    sr6 = sr2^3
-    sr12 = sr6^2
-
-    V = 4.0 * ϵ * (sr12 - sr6)
-    F = 24.0 * ϵ * (2.0 * sr12 - sr6) / r
-
-    S, dS = xplor_switch(r, r_on, r_cut)
-    # The force is: -d/dr [V(r) * S(r)] = S(r) * F(r) - V(r) * dS/dr
-    force = S * F - V * dS
-
-    return V * S, force
-end
-
-lj_xplor(r, lj::LennardJonesXPLOR) = lj_xplor(r, lj.ϵ, lj.σ, lj.r_on, lj.r_cut)
-
-"""
-    evaluate(pot::LennardJonesXPLOR, r, sigma1, sigma2)
-
-Evaluate the Lennard-Jones XPLOR potential for a given distance `r`, with optional individual sigmas.
-Returns a tuple `(energy, force)`.
-"""
-function evaluate(pot::LennardJonesXPLOR, r::Real, sigma1::Real, sigma2::Real)
-    # Use arithmetic mean for cross-interactions (standard Lorentz-Berthelot)
-    σ = (sigma1 + sigma2) / 2.0
-    return lj_xplor(r, pot.ϵ, σ, pot.r_on, pot.r_cut)
-end
-
-function evaluate(pot::LennardJonesXPLOR, r::Real; sigma1=pot.σ, sigma2=pot.σ)
-    return evaluate(pot, r, sigma1, sigma2)
-end
-
-"""
-    lj_xplor_tail_energy(N, V, pot::LennardJonesXPLOR)
-
-Compute the analytic long-range energy correction for Lennard-Jones XPLOR potential.
-"""
-function lj_xplor_tail_energy(N, V, pot::LennardJonesXPLOR)
-    ρ = N / V
-    σ, ϵ, rc = pot.σ, pot.ϵ, pot.r_cut
-    return (8.0 / 3.0) * pi * ρ * N * ϵ * σ^3 * ((1.0 / 3.0) * (σ / rc)^9 - (σ / rc)^3)
-end
-
-"""
-    lj_xplor_tail_pressure(N, V, pot::LennardJonesXPLOR)
-
-Compute the analytic long-range pressure correction for Lennard-Jones XPLOR potential.
-"""
-function lj_xplor_tail_pressure(N, V, pot::LennardJonesXPLOR)
-    ρ = N / V
-    σ, ϵ, rc = pot.σ, pot.ϵ, pot.r_cut
-    return (16.0 / 3.0) * pi * ρ^2 * ϵ * σ^3 * ((2.0 / 3.0) * (σ / rc)^9 - (σ / rc)^3)
-end
-
 # ----- Generic LRC interface for all potentials -----
 
 """
@@ -382,24 +284,4 @@ Override for potentials with analytic corrections.
 """
 function pressure_lrc(::Potential, N, V)
     return 0.0
-end
-
-"""
-    energy_lrc(pot::LennardJonesXPLOR, N, V)
-
-Return the analytic long-range energy correction for `LennardJonesXPLOR` potential if enabled,
-otherwise returns 0.0.
-"""
-function energy_lrc(pot::LennardJonesXPLOR, N, V)
-    return pot.tail_correction ? lj_xplor_tail_energy(N, V, pot) : 0.0
-end
-
-"""
-    pressure_lrc(pot::LennardJonesXPLOR, N, V)
-
-Return the analytic long-range pressure correction for `LennardJonesXPLOR` potential if enabled,
-otherwise returns 0.0.
-"""
-function pressure_lrc(pot::LennardJonesXPLOR, N, V)
-    return pot.tail_correction ? lj_xplor_tail_pressure(N, V, pot) : 0.0
 end

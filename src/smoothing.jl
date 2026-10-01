@@ -40,8 +40,8 @@ keeps the energy, force and second derivative continuous, as the Hessian needs;
 
 Distances are absolute. The `cutoff` given to `initialize_state` must be at least `r_cut`,
 and `potential` itself must not be cut off before `r_cut`. If the wrapped potential has
-long-range tail corrections they are applied unchanged, ignoring the effect of the switch
-(as `LennardJonesXPLOR` did).
+long-range tail corrections they are applied unchanged, ignoring the small change the
+switch makes between `r_on` and `r_cut`.
 
 ```julia
 params = Parameters(density, n_particles, dt, Smoothed(MyPotential(); r_on=1.8, r_cut=2.0))

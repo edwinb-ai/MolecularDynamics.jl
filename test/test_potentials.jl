@@ -81,24 +81,6 @@ end
         @test (shifted.V_cut, shifted.F_cut) == MD.lj_cut_values(1.0, 1.0, rc)
     end
 
-    @testset "LennardJonesXPLOR (deprecated)" begin
-        pot = @test_deprecated LennardJonesXPLOR(1.3, 1.1, 2.0, 2.5, true)
-        # The replacement suggested by the deprecation is the same potential
-        replacement = Smoothed(
-            LennardJones(; epsilon=1.3, sigma=1.1, r_cut=2.5, tail_correction=true);
-            r_on=2.0,
-            r_cut=2.5,
-            switch=:xplor,
-        )
-        for (s1, s2) in ((1.0, 1.0), (0.9, 1.2)), r in 0.9:0.05:2.6
-            @test all(evaluate(pot, r, s1, s2) .≈ evaluate(replacement, r, s1, s2))
-        end
-        @test MD.energy_lrc(pot, 100, 125.0) ≈ MD.energy_lrc(replacement, 100, 125.0)
-        @test MD.pressure_lrc(pot, 100, 125.0) ≈ MD.pressure_lrc(replacement, 100, 125.0)
-        # Keyword form kept for compatibility
-        @test evaluate(pot, 1.5; sigma1=1.0, sigma2=1.0) == evaluate(pot, 1.5, 1.0, 1.0)
-    end
-
     @testset "PseudoHS" begin
         pot = PseudoHS()
         for σ in (1.0, 1.4)

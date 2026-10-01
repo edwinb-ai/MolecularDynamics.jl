@@ -31,7 +31,7 @@ include("temperature_ramps.jl")
 include("simulation.jl")
 
 export Parameters, NVT, NVE, Brownian, initialize_state, run_simulation!
-export PseudoHS, LennardJonesXPLOR, LennardJones, Smoothed
+export PseudoHS, LennardJones, Smoothed
 export LinearRamp, ExponentialRamp
 export minimize!
 export initial_temperature_for_velocities, initialize_velocities
